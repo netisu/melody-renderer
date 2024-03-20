@@ -1,7 +1,7 @@
 package main
 
 import (
-        . "fauxgl"
+        . "main/fauxgl"
         "fmt"
         "net/http"
         "path/filepath"
