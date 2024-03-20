@@ -9,18 +9,18 @@ import (
 )
 
 var (
-        eye          = V(2.3, 1.6, 7) // 9.5,9.5,40 if render is false //alt one 3.5,1.3,7
-        center       = V(0, 0, 0)     // 0,2,0 if render is false
-        up           = V(0, 5, 0)     // 0,3,0 if render is false
+        eye          = V(-0.75, 0.85, -2) // 9.5,9.5,40 if render is false //alt one 3.5,1.3,7 default // 2.3,1.6,7
+        center       = V(0, 0.06, 0)     // 0,2,0 if render is false default /0,0,0
+        up           = V(0, 1, 0)     // 0,3,0 if render is false default 0,5,0
         Dimentions   = 512
         CameraScale  = 1 // set to 4 or 5 for production, 2 or 3 for testing and 1 for obj formating
-        light        = V(16, 22, 25).Normalize()
+        light        = V(0, 6, -4).Normalize() // default 16,22,25
         fovy         = 22.5 // 1.5 if render is false
         near         = 1.0  // 2 if render is false
         far          = 1000.0
         color        = "#828282" // #828282 blender renderer
         Amb          = "#d4d4d4" // #d4d4d4 blender renderer
-        cdnDirectory = "/var/www/cdn"
+        cdnDirectory = "./cdn" // set this to your storage root
 )
 
 func renderAvatar(w http.ResponseWriter, r *http.Request) {
