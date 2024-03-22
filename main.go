@@ -1,7 +1,7 @@
 package main
 
 import (
-        . "github.com/im-aeo/Aeno/fauxgl/fauxgl"
+        . "Aeno/fauxgl/fauxgl"
         "fmt"
         "net/http"
         "path/filepath"
