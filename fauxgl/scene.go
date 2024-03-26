@@ -4,6 +4,7 @@ import (
     "log"
     "sync"
     "github.com/nfnt/resize"
+    "github.com/polds/imgbase64"
 )
 
 // Scene struct to store all data for a scene
