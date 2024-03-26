@@ -25,7 +25,6 @@ func NewScene(eye Vector, center Vector, up Vector, fovy float64, size int, scal
     return &Scene{context, nil, shader, eye, center, up, fovy, aspect}
 }
 
-
 // AddObject adds an object to the scene
 func (s *Scene) AddObject(o *Object) {
     s.Objects = append(s.Objects, o)
