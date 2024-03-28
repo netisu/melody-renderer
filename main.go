@@ -1,7 +1,7 @@
 package main
 
 import (
-        . "/opt/render/project/go/src/github.com/im-aeo/Aeno/fauxgl"
+        . "fauxgl"
         "fmt"
         "net/http"
         "path/filepath"
