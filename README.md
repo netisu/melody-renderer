@@ -7,6 +7,9 @@ Before proceeding with the installation, make sure you meet the following prereq
 1. **Operating System:** You can use either Ubuntu/Linux Server (version 20.04+) or a Windows machine with Laragon installed.
 2. **Laragon:** If you're on a Windows machine, download Laragon from [Laragon.org](https://laragon.org).
 
+You will also need to have golang installed.
+
+
 ### Installation Commands:
 
 Execute the following commands to install the required packages:
