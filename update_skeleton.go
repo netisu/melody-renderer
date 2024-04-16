@@ -23,7 +23,7 @@ var (
 	cdnDirectory = "./cdn" // set this to your storage root
 )
 
-func renderAvatar(w http.ResponseWriter, r *http.Request) {
+func renderCommand(w http.ResponseWriter, r *http.Request) {
 
 	// Extract query parameters from the HTTP request with default values
 	renderType := r.URL.Query().Get("renderType")
@@ -70,7 +70,7 @@ func renderHeadshot(w http.ResponseWriter, r *http.Request) {
 func main() {
 
 	// HTTP endpoint for rendering avatars
-	http.HandleFunc("/", renderAvatar)
+	http.HandleFunc("/", renderCommand)
 
 	// Set up and start the HTTP server
 	serverAddress := ":8001" // Set the port for the HTTP server
