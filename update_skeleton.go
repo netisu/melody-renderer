@@ -21,6 +21,7 @@ var (
 	color    = "#828282" // #828282 blender lighting
 	Amb     = "#d4d4d4" // #d4d4d4 blender ambiance
 	cdnDirectory = "./cdn" // set this to your storage root
+	ver = "a.1"
 )
 
 func renderCommand(w http.ResponseWriter, r *http.Request) {
