@@ -154,31 +154,31 @@ func renderItemPreview(w http.ResponseWriter, r *http.Request) {
 	// Delegate item preview rendering logic here
 	fmt.Println("Rendering Item Preview...")
 	// ... (call generateObjects and GenerateScene with item preview specific logic)
-	        face := r.URL.Query().Get("face")
-        if face == "" {
-                face = "default"
-        }
 
-        tool := r.URL.Query().Get("tool")
-        if tool == "" {
-                tool = "none"
+        item := r.URL.Query().Get("item")
+        if item == "" {
+                item = "none"
+        }
+	
+	isHandheld := r.URL.Query().Get("istool")
+        if isHandheld == "" {
+                isHandheld = false
         }
 
         if hash == "default" {
                 fmt.Println("Avatar Hash is required")
                 return
         }
+	
 	// ... (call generateObjects and GenerateScene with user specific logic)
 	start := time.Now()
         fmt.Println("Drawing Objects...")
         // Get the face texture
-        faceTexture := AddFace(face)
+        faceTexture := AddFace("default")
         // Generate the list of objects using the function
          objects := generateObjects(
-                torso_color, leftLeg_color, rightLeg_color, rightArm_color, head_color,
-                faceTexture,
-                hat1, hat2, hat3, hat4, hat5, hat6,
-                tool, leftArm_color, rightArm_color,
+                item,
+                isHandheld,
          )
 	 fmt.Println("Exporting to", cdnDirectory, "thumbnails")
          path := filepath.Join(cdnDirectory, "thumbnails", hash+".png")
@@ -289,7 +289,7 @@ func ToolClause(tool, leftArm_color, rightArm_color string) []*Object {
 }
 
 func generateObjects(
-        torsoColor, leftLegColor, rightLegColor, rightArmColorParam, headColor string,
+        torsoColor default "232323", leftLegColor, rightLegColor, rightArmColorParam, headColor string,
         faceTexture Texture,
         hat1, hat2, hat3, hat4, hat5, hat6 string,
         tool, leftArmColor, rightArmColor string,
