@@ -154,11 +154,72 @@ func renderItemPreview(w http.ResponseWriter, r *http.Request) {
 	// Delegate item preview rendering logic here
 	fmt.Println("Rendering Item Preview...")
 	// ... (call generateObjects and GenerateScene with item preview specific logic)
+	        face := r.URL.Query().Get("face")
+        if face == "" {
+                face = "default"
+        }
+
+        tool := r.URL.Query().Get("tool")
+        if tool == "" {
+                tool = "none"
+        }
+
+        if hash == "default" {
+                fmt.Println("Avatar Hash is required")
+                return
+        }
+	// ... (call generateObjects and GenerateScene with user specific logic)
+	start := time.Now()
+        fmt.Println("Drawing Objects...")
+        // Get the face texture
+        faceTexture := AddFace(face)
+        // Generate the list of objects using the function
+         objects := generateObjects(
+                torso_color, leftLeg_color, rightLeg_color, rightArm_color, head_color,
+                faceTexture,
+                hat1, hat2, hat3, hat4, hat5, hat6,
+                tool, leftArm_color, rightArm_color,
+         )
+	 fmt.Println("Exporting to", cdnDirectory, "thumbnails")
+         path := filepath.Join(cdnDirectory, "thumbnails", hash+".png")
+         GenerateScene(true, path, objects, eye, center, up, fovy, Dimentions, CameraScale, light, Amb, color, near, far)
+         fmt.Println("Completed in", time.Since(start))
+        
+
+        // Set the response content type to image/png
+        w.Header().Set("Content-Type", "image/png")
 }
 
 func renderItem(w http.ResponseWriter, r *http.Request) {
 	// Delegate item rendering logic here
 	fmt.Println("Rendering Item...")
+	
+        item := r.URL.Query().Get("hat1")
+        if item == "" {
+                item = "none"
+        }
+
+        if hash == "default" {
+                fmt.Println("filename is required")
+                return
+        }
+	// ... (call generateObjects and GenerateScene with user specific logic)
+	start := time.Now()
+        fmt.Println("Drawing Objects...")
+	
+        // Generate the list of objects using the function
+         faceTexture := AddFace("default")
+        // Generate the list of objects using the function
+         objects := generateObjects(
+                torso_color, leftLeg_color, rightLeg_color, rightArm_color, head_color,
+                faceTexture,
+                hat1, hat2, hat3, hat4, hat5, hat6,
+                tool, leftArm_color, rightArm_color,
+         )
+        
+
+        // Set the response content type to image/png
+        w.Header().Set("Content-Type", "image/png")
 	// ... (call generateObjects and GenerateScene with item specific logic)
 }
 
