@@ -1,7 +1,7 @@
 package main
 
 import (
-	"aeno"
+	"aeno" // if there is no aeno, use fauxgl
 	"fmt"
 	"net/http"
 	"path/filepath"
