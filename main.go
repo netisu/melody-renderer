@@ -24,7 +24,7 @@ var (
 	center        = aeno.V(0, 0.06, 0)
 	up            = aeno.V(0, 1, 0)
 	light         = aeno.V(0, 6, 4).Normalize()
-	cdnDirectory  = "./cdn" // set this to your storage root
+	cdnDirectory  = "C:/laragon/www/cdn" // set this to your storage root
 	serverAddress = ":8001" // do not put links like (renderer.example.com) until after pentesting
 )
 
@@ -321,9 +321,9 @@ func renderHeadshot(w http.ResponseWriter, r *http.Request) {
 	// Delegate headshot rendering logic here
 	fmt.Println("Rendering Headshot...")
 	var (
-		headshot_eye    = aeno.V(13, 14, 30)
-		headshot_center = aeno.V(0, 10, 0)
-		headshot_up     = aeno.V(0, 7, 0)
+		headshot_eye    = aeno.V(13, 14, -0.75)
+		headshot_center = aeno.V(0, -0.07, 0)
+		headshot_up     = aeno.V(0, 1, 0)
 	)
 
 	hash := r.URL.Query().Get("hash")
@@ -593,7 +593,7 @@ func Texturize(torsoColor, leftLegColor, rightLegColor, leftArmColor, tool, righ
 
 	// Handle tool logic
 
-	armObjects := ToolClause(tool, leftLegColor, rightArmColorParam, shirt)
+	armObjects := ToolClause(tool, leftArmColor, rightArmColorParam, shirt)
 	objects = append(objects, armObjects...)
 
 	return objects
