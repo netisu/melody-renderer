@@ -13,7 +13,7 @@ const (
 	scale      = 1
 	fovy       = 15.5
 	near       = 1
-	far        = 1000.0
+	far        = 1000
 	amb        = "d4d4d4"
 	lightcolor = "696969"
 	Dimentions = 512 // april fools (25)
@@ -321,9 +321,9 @@ func renderHeadshot(w http.ResponseWriter, r *http.Request) {
 	// Delegate headshot rendering logic here
 	fmt.Println("Rendering Headshot...")
 	var (
-		headshot_eye    = aeno.V(13, 14, -0.75)
-		headshot_center = aeno.V(0, -0.07, 0)
-		headshot_up     = aeno.V(0, 1, 0)
+		headshot_eye    = aeno.V(0, 10, 19)
+		headshot_center = aeno.V(-0.5, 6.8, 0)
+		headshot_up     = aeno.V(0, 4, 0)
 	)
 
 	hash := r.URL.Query().Get("hash")
