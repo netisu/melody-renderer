@@ -145,6 +145,11 @@ func renderUser(w http.ResponseWriter, r *http.Request) {
 		shirt = "none"
 	}
 
+	tshirt := r.URL.Query().Get("tshirt")
+	if tshirt == "" {
+		tshirt = "none"
+	}
+
 	pants := r.URL.Query().Get("pants")
 	if pants == "" {
 		pants = "none"
@@ -164,7 +169,7 @@ func renderUser(w http.ResponseWriter, r *http.Request) {
 	objects := generateObjects(
 		torso_color, leftLeg_color, rightLeg_color, rightArm_color, head_color,
 		faceTexture,
-		shirt, pants,
+		shirt, pants, tshirt,
 		hat1, hat2, hat3, hat4, hat5, hat6,
 		tool, leftArm_color,
 	)
@@ -199,7 +204,10 @@ func renderItemPreview(w http.ResponseWriter, r *http.Request) {
 	// Delegate item preview rendering logic here
 	var isFace bool
 	var isTool bool
-	var isTexture bool
+	var isShirt bool
+	var isTshirt bool
+	var isPants bool
+	var PathMod bool
 
 	hash := r.URL.Query().Get("hash")
 	if hash == "" {
@@ -216,12 +224,22 @@ func renderItemPreview(w http.ResponseWriter, r *http.Request) {
 	if isFaceParam, err := strconv.ParseBool(r.URL.Query().Get("isFace")); err == nil {
 		isFace = isFaceParam
 	}
+	if PathModParam, err := strconv.ParseBool(r.URL.Query().Get("pathmod")); err == nil {
+		PathMod = PathModParam
+	}
+	if isPantsParam, err := strconv.ParseBool(r.URL.Query().Get("isPants")); err == nil {
+		isPants = isPantsParam
+	}
+
+	if isTshirtParam, err := strconv.ParseBool(r.URL.Query().Get("isTshirt")); err == nil {
+		isTshirt = isTshirtParam
+	}
 
 	if isToolParam, err := strconv.ParseBool(r.URL.Query().Get("isTool")); err == nil {
 		isTool = isToolParam
 	}
-	if isTexParam, err := strconv.ParseBool(r.URL.Query().Get("isTexture")); err == nil {
-		isTexture = isTexParam
+	if isShirtParam, err := strconv.ParseBool(r.URL.Query().Get("isShirt")); err == nil {
+		isShirt = isShirtParam
 	}
 
 	if hash == "default" {
@@ -240,27 +258,51 @@ func renderItemPreview(w http.ResponseWriter, r *http.Request) {
 	objects := generatePreview(
 		isFace,
 		isTool,
-		isTexture,
+		isShirt,
+		isTshirt,
+		isPants,
 		item,
 	)
 	fmt.Println("Exporting to", cdnDirectory, "thumbnails")
-	path := filepath.Join(cdnDirectory, "thumbnails", hash+".png")
-	aeno.GenerateScene(
-		true,
-		path,
-		objects,
-		eye,
-		center,
-		up,
-		fovy,
-		Dimentions,
-		scale,
-		light,
-		amb,
-		lightcolor,
-		near,
-		far,
-	)
+	if PathMod {
+		path := filepath.Join(cdnDirectory, "thumbnails", hash + "_preview.png")
+		aeno.GenerateScene(
+			true,
+			path,
+			objects,
+			eye,
+			center,
+			up,
+			fovy,
+			Dimentions,
+			scale,
+			light,
+			amb,
+			lightcolor,
+			near,
+			far,
+		)
+
+	} else {
+		path := filepath.Join(cdnDirectory, "thumbnails", hash + ".png")
+		aeno.GenerateScene(
+			true,
+			path,
+			objects,
+			eye,
+			center,
+			up,
+			fovy,
+			Dimentions,
+			scale,
+			light,
+			amb,
+			lightcolor,
+			near,
+			far,
+		)
+
+	}
 	fmt.Println("Completed in", time.Since(start))
 
 	// Set the response content type to image/png
@@ -399,14 +441,14 @@ func renderHeadshot(w http.ResponseWriter, r *http.Request) {
 		face = "none"
 	}
 
-	tool := r.URL.Query().Get("tool")
-	if tool == "" {
-		tool = "none"
-	}
-
 	shirt := r.URL.Query().Get("shirt")
 	if shirt == "" {
 		shirt = "none"
+	}
+
+	tshirt := r.URL.Query().Get("tshirt")
+	if tshirt == "" {
+		tshirt = "none"
 	}
 
 	pants := r.URL.Query().Get("pants")
@@ -425,12 +467,12 @@ func renderHeadshot(w http.ResponseWriter, r *http.Request) {
 	// Get the face texture
 	faceTexture := AddFace(face)
 	// Generate the list of objects using the function
-	objects := generateObjects(
+	objects := generateHeadshot(
 		torso_color, leftLeg_color, rightLeg_color, rightArm_color, head_color,
 		faceTexture,
-		shirt, pants,
+		shirt, pants, tshirt,
 		hat1, hat2, hat3, hat4, hat5, hat6,
-		tool, leftArm_color,
+		leftArm_color,
 	)
 	fmt.Println("Exporting to", cdnDirectory, "thumbnails")
 	path := filepath.Join(cdnDirectory, "thumbnails", hash+"_headshot.png")
@@ -524,11 +566,36 @@ func ToolClause(tool, leftArmColor, rightArmColorParam, shirt string) []*aeno.Ob
 func generateObjects(
 	torsoColor, leftLegColor, rightLegColor, rightArmColor, headColor string,
 	faceTexture aeno.Texture,
-	shirt, pants,
+	shirt, pants, tshirt,
 	hat1, hat2, hat3, hat4, hat5, hat6 string,
 	tool, leftArmColor string,
 ) []*aeno.Object {
-	objects := Texturize(torsoColor, leftLegColor, rightLegColor, leftArmColor, tool, rightArmColor, pants, shirt)
+	objects := Texturize(torsoColor, leftLegColor, rightLegColor, leftArmColor, tool, rightArmColor, pants, shirt, tshirt)
+
+	// Render and append the face object if a face texture is available
+	if faceTexture != nil {
+		faceObject := &aeno.Object{
+			Mesh:    aeno.LoadObject(filepath.Join(cdnDirectory, "/assets/head.obj")),
+			Texture: faceTexture,
+			Color:   aeno.HexColor(headColor),
+		}
+		objects = append(objects, faceObject)
+	}
+
+	// Render and append the hat objects
+	hatObjects := RenderHats(hat1, hat2, hat3, hat4, hat5, hat6)
+	objects = append(objects, hatObjects...)
+
+	return objects
+}
+func generateHeadshot(
+	torsoColor, leftLegColor, rightLegColor, rightArmColor, headColor string,
+	faceTexture aeno.Texture,
+	shirt, pants, tshirt,
+	hat1, hat2, hat3, hat4, hat5, hat6 string,
+	leftArmColor string,
+) []*aeno.Object {
+	objects := Texturize(torsoColor, leftLegColor, rightLegColor, leftArmColor, "none", rightArmColor, pants, shirt, tshirt)
 
 	// Render and append the face object if a face texture is available
 	if faceTexture != nil {
@@ -547,7 +614,7 @@ func generateObjects(
 	return objects
 }
 
-func Texturize(torsoColor, leftLegColor, rightLegColor, leftArmColor, tool, rightArmColorParam, pants, shirt string) []*aeno.Object {
+func Texturize(torsoColor, leftLegColor, rightLegColor, leftArmColor, tool, rightArmColorParam, pants, shirt, tshirt string) []*aeno.Object {
 	objects := []*aeno.Object{}
 
 	// Load torso object
@@ -583,6 +650,15 @@ func Texturize(torsoColor, leftLegColor, rightLegColor, leftArmColor, tool, righ
 		}
 	}
 
+	if tshirt != "none" {
+		TshirtLoader := &aeno.Object{
+			Mesh:  aeno.LoadObject(filepath.Join(cdnDirectory, "/assets/tshirt.obj")),
+			Texture: aeno.LoadTexture(filepath.Join(cdnDirectory, "/uploads/"+tshirt+".png")),
+			Color: aeno.HexColor(torsoColor),
+		}
+		objects = append(objects, TshirtLoader)
+	}
+
 	// Load pants texture if provided (similar to shirt shii)
 	if pants != "none" {
 		pantsTexture := aeno.LoadTexture(filepath.Join(cdnDirectory, "/uploads/"+pants+".png"))
@@ -602,26 +678,44 @@ func Texturize(torsoColor, leftLegColor, rightLegColor, leftArmColor, tool, righ
 func generatePreview(
 	isFace bool,
 	isTool bool,
-	isTexture bool,
+	isShirt bool,
+	isTshirt bool,
+	isPants bool,
 	item string,
 ) []*aeno.Object {
 	objects := []*aeno.Object{
 		{
-			Mesh:  aeno.LoadObject(filepath.Join(cdnDirectory, "/assets/torso.obj")),
-			Color: aeno.HexColor("5579C6"),
-		},
-		{
-			Mesh:  aeno.LoadObject(filepath.Join(cdnDirectory, "/assets/leftleg.obj")),
-			Color: aeno.HexColor("d3d3d3"),
-		},
-		{
-			Mesh:  aeno.LoadObject(filepath.Join(cdnDirectory, "/assets/rightleg.obj")),
-			Color: aeno.HexColor("d3d3d3"),
-		},
-		{
 			Mesh:  aeno.LoadObject(filepath.Join(cdnDirectory, "/assets/rightarm.obj")),
 			Color: aeno.HexColor("d3d3d3"),
 		},
+		{
+			Mesh:  aeno.LoadObject(filepath.Join(cdnDirectory, "/assets/torso.obj")),
+			Color: aeno.HexColor("5579C6"),
+		},
+		
+	}
+	if !isTool {
+		leftArm := &aeno.Object{
+			Mesh:  aeno.LoadObject(filepath.Join(cdnDirectory, "/assets/leftarm.obj")),
+			Color: aeno.HexColor("d3d3d3"),
+		}
+		objects = append(objects, leftArm)
+	}
+	LeftLeg := &aeno.Object{
+		Mesh:  aeno.LoadObject(filepath.Join(cdnDirectory, "/assets/leftleg.obj")),
+		Color: aeno.HexColor("d3d3d3"),
+	}
+	RightLeg := &aeno.Object{
+		Mesh:  aeno.LoadObject(filepath.Join(cdnDirectory, "/assets/rightleg.obj")),
+		Color: aeno.HexColor("d3d3d3"),
+	}
+	
+	objects = append(objects, LeftLeg, RightLeg)
+	
+	if isTool {
+		// Render and append the arm objects
+		armObject := ToolClause(item, "d3d3d3", "d3d3d3", "none")
+		objects = append(objects, armObject...)
 	}
 
 	// Render and append the face object if a face texture is available
@@ -641,30 +735,34 @@ func generatePreview(
 		objects = append(objects, faceObject)
 	}
 
-	if isTool {
-		// Render and append the arm objects
-		armObject := ToolClause(item, "d3d3d3", "d3d3d3", "none")
-		objects = append(objects, armObject...)
-	}
+	
 
-	if !isTool {
-		leftArm := &aeno.Object{
-			Mesh:  aeno.LoadObject(filepath.Join(cdnDirectory, "/assets/leftarm.obj")),
-			Color: aeno.HexColor("d3d3d3"),
-		}
-		objects = append(objects, leftArm)
-	}
+	
 
-	if !isTool && isTexture {
-		leftArm := &aeno.Object{
-			Mesh:    aeno.LoadObject(filepath.Join(cdnDirectory, "/assets/leftarm.obj")),
+	if isTshirt {
+		TshirtLoader := &aeno.Object{
+			Mesh:  aeno.LoadObject(filepath.Join(cdnDirectory, "/assets/tshirt.obj")),
 			Texture: aeno.LoadTexture(filepath.Join(cdnDirectory, "/uploads/"+item+".png")),
-			Color:   aeno.HexColor("d3d3d3"),
+			Color: aeno.HexColor("5579C6"),
 		}
-		objects = append(objects, leftArm)
+		objects = append(objects, TshirtLoader)
 	}
 
-	if !isTool && !isFace {
+	if !isTool && !isTshirt && isShirt {
+		shirtTexture := aeno.LoadTexture(filepath.Join(cdnDirectory, "/uploads/"+item+".png"))
+		for _, obj := range objects[0:3] { // Skip torso and right arm
+			obj.Texture = shirtTexture
+		}
+	}
+
+	if !isTool && !isTshirt && !isShirt && isPants {
+		pantsTexture := aeno.LoadTexture(filepath.Join(cdnDirectory, "/uploads/"+item+".png"))
+		for _, obj := range objects[3:5] { // Skip torso and right arm
+			obj.Texture = pantsTexture
+		}
+	}
+
+	if !isTool && !isFace && !isTshirt && !isShirt && !isPants {
 		hatObject := RenderHats(item)
 		objects = append(objects, hatObject...)
 	}
