@@ -16,7 +16,7 @@ const (
 	far        = 1000
 	amb        = "d4d4d4"
 	lightcolor = "696969"
-	Dimentions = 512 // april fools (25)
+	Dimentions = 512 // april fools (15)
 )
 
 var (
@@ -650,6 +650,13 @@ func Texturize(torsoColor, leftLegColor, rightLegColor, leftArmColor, tool, righ
 		}
 	}
 
+	// Load pants texture if provided (similar to shirt shii)
+	if pants != "none" {
+		pantsTexture := aeno.LoadTexture(filepath.Join(cdnDirectory, "/uploads/"+pants+".png"))
+		for _, obj := range objects[2:] { // Skip torso and right arm
+			obj.Texture = pantsTexture
+		}
+	}
 	if tshirt != "none" {
 		TshirtLoader := &aeno.Object{
 			Mesh:  aeno.LoadObject(filepath.Join(cdnDirectory, "/assets/tshirt.obj")),
@@ -658,15 +665,6 @@ func Texturize(torsoColor, leftLegColor, rightLegColor, leftArmColor, tool, righ
 		}
 		objects = append(objects, TshirtLoader)
 	}
-
-	// Load pants texture if provided (similar to shirt shii)
-	if pants != "none" {
-		pantsTexture := aeno.LoadTexture(filepath.Join(cdnDirectory, "/uploads/"+pants+".png"))
-		for _, obj := range objects[2:] { // Skip torso and right arm
-			obj.Texture = pantsTexture
-		}
-	}
-
 	// Handle tool logic
 
 	armObjects := ToolClause(tool, leftArmColor, rightArmColorParam, shirt)
