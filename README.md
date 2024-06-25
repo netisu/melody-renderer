@@ -6,16 +6,30 @@ Before proceeding with the installation, make sure you meet the following prereq
 
 1. **Operating System:** You can use either Ubuntu/Linux Server (version 20.04+) or a Windows machine with Laragon installed.
 2. **Laragon:** If you're on a Windows machine, download Laragon from [Laragon.org](https://laragon.org).
+3. **Golang:** You need to have golang installed.
+4. **Supervisor:** To manage and automate the render service we need supervisor
 
 You will also need to have golang installed.
 
 
 ### Installation Commands:
 
-Execute the following commands to install the required packages:
+# Supervisor Config:
 
-```bash
-sudo apt install php8.1-{memcache,fpm,cgi,http,raphf,memcached,common,redis,mysql,mysqli,sodium} zip unzip unrar nginx memcache curl && sudo apt remove apache*
+```bash                            
+[program:netisu-renderer]
+process_name=%(program_name)s_%(process_num)02d
+directory=/usr/local
+command=/usr/local/bin/renderer
+autostart=true
+autorestart=true
+user=root
+numprocs=1
+redirect_stderr=true
+stdout_logfile=/var/www/renderer/worker.log
+
+[inet_http_server]
+port = 127.0.0.1:4315
 ```
 
 Modify the settings in this file as needed.
