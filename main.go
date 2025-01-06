@@ -14,8 +14,8 @@ const (
         fovy       = 15.5
         near       = 1
         far        = 1000
-        amb        = "d4d4d4" // d4d4d4
-        lightcolor = "696969" // 696969
+        amb        = "dadada" // d4d4d4
+        lightcolor = "606060" // 696969
         Dimentions = 512 // april fools (15)
 )
 
@@ -23,9 +23,9 @@ var (
         eye           = aeno.V(0.72, 0.82, 2)
         center        = aeno.V(0, 0.06, 0)
         up            = aeno.V(0, 1, 0)
-        light         = aeno.V(0, 6, 4).Normalize()
-        cdnDirectory  = "/var/www/html/public/cdn" // set this to your storage root
-        serverAddress = ":4315" // do not put links like (renderer.example.com) until after pentesting
+        light         = aeno.V(12, 45, 25).Normalize()
+        cdnDirectory  = "/var/www/cdn" // set this to your storage root
+        serverAddress = ":4316" // do not put links like (renderer.example.com) until after pentesting
 )
 
 func main() {
@@ -144,7 +144,13 @@ func renderUser(w http.ResponseWriter, r *http.Request) {
         if shirt == "" {
                 shirt = "none"
         }
+addon := r.URL.Query().Get("addon")
 
+        if addon == "" {
+
+                addon = "none"
+
+        }
         tshirt := r.URL.Query().Get("tshirt")
         if tshirt == "" {
                 tshirt = "none"
@@ -170,7 +176,7 @@ func renderUser(w http.ResponseWriter, r *http.Request) {
                 torso_color, leftLeg_color, rightLeg_color, rightArm_color, head_color,
                 faceTexture,
                 shirt, pants, tshirt,
-                hat1, hat2, hat3, hat4, hat5, hat6,
+                hat1, hat2, hat3, hat4, hat5, hat6, addon,
                 tool, leftArm_color,
         )
         fmt.Println("Exporting to", cdnDirectory, "thumbnails")
@@ -340,13 +346,13 @@ func renderItem(w http.ResponseWriter, r *http.Request) {
                 true,
                 path,
                 objects,
-                eye,
-                center,
-                aeno.V(0,1,0),
+                aeno.V(2,4,8),
+                aeno.V(0,0,0),
+                up,
                 fovy,
                 Dimentions,
                 scale,
-                light,
+               aeno.V(0.1,1,0.6).Normalize(),
                 amb,
                 lightcolor,
                 near,
@@ -364,7 +370,7 @@ func renderHeadshot(w http.ResponseWriter, r *http.Request) {
         fmt.Println("Rendering Headshot...")
         var (
                 headshot_eye    = aeno.V(0, 10, 19) // V(0, 10, 19)
-                headshot_center = aeno.V(-0.5, 6.8, 0) // V(-0.5, 6.8, 0)
+                headshot_center = aeno.V(-0.5, 6.8, -5) // V(-0.5, 6.8, 0)
                 headshot_up     = aeno.V(0, 4, 0) // V(0, 4, 0)
         )
 
@@ -390,7 +396,13 @@ func renderHeadshot(w http.ResponseWriter, r *http.Request) {
         if leftLeg_color == "" {
                 leftLeg_color = "d4d4d4"
         }
+addon := r.URL.Query().Get("addon")
 
+        if addon == "" {
+
+                addon = "none"
+
+        }
         rightLeg_color := r.URL.Query().Get("rightLeg_color")
         if rightLeg_color == "" {
                 rightLeg_color = "d4d4d4"
@@ -471,7 +483,7 @@ func renderHeadshot(w http.ResponseWriter, r *http.Request) {
                 torso_color, leftLeg_color, rightLeg_color, rightArm_color, head_color,
                 faceTexture,
                 shirt, pants, tshirt,
-                hat1, hat2, hat3, hat4, hat5, hat6,
+                hat1, hat2, hat3, hat4, hat5, hat6, addon,
                 leftArm_color,
         )
         fmt.Println("Exporting to", cdnDirectory, "thumbnails")
@@ -567,7 +579,7 @@ func generateObjects(
         torsoColor, leftLegColor, rightLegColor, rightArmColor, headColor string,
         faceTexture aeno.Texture,
         shirt, pants, tshirt,
-        hat1, hat2, hat3, hat4, hat5, hat6 string,
+        hat1, hat2, hat3, hat4, hat5, hat6, addon string,
         tool, leftArmColor string,
 ) []*aeno.Object {
         objects := Texturize(torsoColor, leftLegColor, rightLegColor, leftArmColor, tool, rightArmColor, pants, shirt, tshirt)
@@ -583,7 +595,7 @@ func generateObjects(
         }
 
         // Render and append the hat objects
-        hatObjects := RenderHats(hat1, hat2, hat3, hat4, hat5, hat6)
+        hatObjects := RenderHats(hat1, hat2, hat3, hat4, hat5, hat6, addon)
         objects = append(objects, hatObjects...)
 
         return objects
@@ -592,7 +604,7 @@ func generateHeadshot(
         torsoColor, leftLegColor, rightLegColor, rightArmColor, headColor string,
         faceTexture aeno.Texture,
         shirt, pants, tshirt,
-        hat1, hat2, hat3, hat4, hat5, hat6 string,
+        hat1, hat2, hat3, hat4, hat5, hat6, addon string,
         leftArmColor string,
 ) []*aeno.Object {
         objects := Texturize(torsoColor, leftLegColor, rightLegColor, leftArmColor, "none", rightArmColor, pants, shirt, tshirt)
@@ -608,7 +620,7 @@ func generateHeadshot(
         }
 
         // Render and append the hat objects
-        hatObjects := RenderHats(hat1, hat2, hat3, hat4, hat5, hat6)
+        hatObjects := RenderHats(hat1, hat2, hat3, hat4, hat5, hat6, addon)
         objects = append(objects, hatObjects...)
 
         return objects
