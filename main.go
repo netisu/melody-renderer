@@ -11,19 +11,19 @@ import (
 
 const (
         scale      = 1
-        fovy       = 15.5
+        fovy       = 22.5
         near       = 1
         far        = 1000
-        amb        = "dadada" // d4d4d4
-        lightcolor = "606060" // 696969
+        amb        = "606060" // d4d4d4
+        lightcolor = "dadada" // 696969
         Dimentions = 512 // april fools (15)
 )
 
 var (
         eye           = aeno.V(0.72, 0.82, 2)
-        center        = aeno.V(0, 0.06, 0)
-        up            = aeno.V(0, 1, 0)
-        light         = aeno.V(12, 45, 25).Normalize()
+        center        = aeno.V(0, 0.04, 0)
+        up            = aeno.V(0, 1.3, 0)
+        light         = aeno.V(12, 16, 25).Normalize()
         cdnDirectory  = "/var/www/cdn" // set this to your storage root
         serverAddress = ":4316" // do not put links like (renderer.example.com) until after pentesting
 )
@@ -341,23 +341,24 @@ func renderItem(w http.ResponseWriter, r *http.Request) {
         objects := RenderHats(item)
         fmt.Println("Exporting to", cdnDirectory, "thumbnails")
         path := filepath.Join(cdnDirectory, "thumbnails", hash+".png")
-
+        
         aeno.GenerateScene(
                 true,
                 path,
                 objects,
-                aeno.V(2,4,8),
+                aeno.V(1,2,3),
                 aeno.V(0,0,0),
-                up,
+                aeno.V(0,1,0),
                 fovy,
                 Dimentions,
                 scale,
-               aeno.V(0.1,1,0.6).Normalize(),
+                aeno.V(0.1,1,0.6).Normalize(),
                 amb,
                 lightcolor,
                 near,
                 far,
         )
+        
         fmt.Println("Completed in", time.Since(start))
 
         // Set the response content type to image/png
@@ -369,10 +370,10 @@ func renderHeadshot(w http.ResponseWriter, r *http.Request) {
         // Delegate headshot rendering logic here
         fmt.Println("Rendering Headshot...")
         var (
-                headshot_eye    = aeno.V(0, 10, 19) // V(0, 10, 19)
-                headshot_center = aeno.V(-0.5, 6.8, -5) // V(-0.5, 6.8, 0)
-                headshot_up     = aeno.V(0, 4, 0) // V(0, 4, 0)
-        )
+		headshot_eye    = aeno.V(0, 10, 19)
+		headshot_center = aeno.V(-0.5, 6.8, 0)
+		headshot_up     = aeno.V(0, 4, 0)
+	)
 
         hash := r.URL.Query().Get("hash")
         if hash == "" {
@@ -396,7 +397,7 @@ func renderHeadshot(w http.ResponseWriter, r *http.Request) {
         if leftLeg_color == "" {
                 leftLeg_color = "d4d4d4"
         }
-addon := r.URL.Query().Get("addon")
+        addon := r.URL.Query().Get("addon")
 
         if addon == "" {
 
@@ -510,8 +511,6 @@ addon := r.URL.Query().Get("addon")
 
         // Set the response content type to image/png
         w.Header().Set("Content-Type", "image/png")
-
-        // ... (call generateObjects and GenerateScene for user and headshot together)
 }
 
 func RenderHats(hats ...string) []*aeno.Object {
@@ -674,7 +673,6 @@ func Texturize(torsoColor, leftLegColor, rightLegColor, leftArmColor, tool, righ
                 TshirtLoader := &aeno.Object{
                         Mesh:  aeno.LoadObject(filepath.Join(cdnDirectory, "/assets/tshirt.obj")),
                         Texture: aeno.LoadTexture(filepath.Join(cdnDirectory, "/uploads/"+tshirt+".png")),
-                        Color: aeno.HexColor(torsoColor),
                 }
                 objects = append(objects, TshirtLoader)
         }
