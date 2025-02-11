@@ -557,7 +557,7 @@ func renderHeadshot(e RenderEvent, w http.ResponseWriter) {
 	objects := generateObjects(updatedUserConfig)
 
 	fmt.Println("Exporting to", tempDir, "thumbnails")
-	outputFile := path.Join("thumbnails", e.Hash+".png")
+	outputFile := path.Join("thumbnails", e.Hash+"_headshot.png")
 
 	path := path.Join(tempDir, "thumbnails", e.Hash+"_headshot.png")
 
