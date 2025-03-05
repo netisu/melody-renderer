@@ -242,7 +242,7 @@ func renderUser(e RenderEvent, w http.ResponseWriter) {
 	fmt.Println("Exporting to", tempDir, "thumbnails")
 	outputFile := path.Join("thumbnails", e.Hash+".png")
 
-	path := path.Join(tempDir, "thumbnails", e.Hash+".png")
+	path := path.Join(tempDir, e.Hash+".png")
 
 	aeno.GenerateScene(
 		true,
@@ -260,6 +260,7 @@ func renderUser(e RenderEvent, w http.ResponseWriter) {
 		near,
 		far,
 	)
+	
 	fmt.Println("Uploading to the", bucket, "s3 bucket")
 
 	f, err := os.Open(path)
@@ -343,10 +344,10 @@ func renderItemPreview(i ItemEvent, w http.ResponseWriter) {
 
 	if i.RenderJson.PathMod {
         outputFile = path.Join("thumbnails", i.Hash+"_preview.png") // Assign to outputFile
-        fullPath = path.Join(tempDir, outputFile) // Construct the full path
+        fullPath = path.Join(tempDir, i.Hash+".png") // Construct the full path
     } else {
         outputFile = path.Join("thumbnails", i.Hash+".png")      // Assign to outputFile
-        fullPath = path.Join(tempDir, outputFile) // Construct the full path
+        fullPath =	path.Join(tempDir, i.Hash+".png") // Construct the full path
     }
 
     aeno.GenerateScene(
@@ -446,7 +447,7 @@ func renderItem(i ItemEvent, w http.ResponseWriter) {
 
 	fmt.Println("Exporting to", tempDir, "thumbnails")
 	outputFile := path.Join("thumbnails", i.Hash+".png")
-	path := path.Join(bucket, "thumbnails", i.Hash+".png")
+	path := path.Join(tempDir, i.Hash+".png")
 
 	aeno.GenerateScene(
 		true,
@@ -559,8 +560,7 @@ func renderHeadshot(e RenderEvent, w http.ResponseWriter) {
 	fmt.Println("Exporting to", tempDir, "thumbnails")
 	outputFile := path.Join("thumbnails", e.Hash+"_headshot.png")
 
-	path := path.Join(tempDir, "thumbnails", e.Hash+"_headshot.png")
-
+	path := path.Join(tempDir, e.Hash+"_headshot.png")
 	aeno.GenerateScene(
 		false,
 		path,
