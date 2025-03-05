@@ -2,6 +2,7 @@ package aeno
 
 import (
 	"net/http"
+	"github.com/go-gl/mathgl/mgl64"
 )
 
 // Object struct for objects
@@ -10,39 +11,35 @@ type Object struct {
 	Mesh    *Mesh
 	Texture Texture
 	Color   Color
+	Matrix  mgl64.Mat4
 }
 
 // NewEmptyObject returns an empty object
 func NewEmptyObject() *Object {
-	return &Object{}
+    return &Object{Matrix: mgl64.Ident4()} // Initialize with identity!
 }
 
-// NewObject returns an object with generated mesh
-func NewObject(triangles []*Triangle, lines []*Line) *Object {
-	return &Object{NewMesh(triangles, lines), nil, Discard}
+func NewObject(triangles[]*Triangle, lines[]*Line) *Object {
+    return &Object{Mesh: NewMesh(triangles, lines), Matrix: mgl64.Ident4()} // Initialize with identity!
 }
 
-// NewObjectFromMesh returns an object from mesh
 func NewObjectFromMesh(mesh *Mesh) *Object {
-	return &Object{mesh, nil, Discard}
+    return &Object{Mesh: mesh, Matrix: mgl64.Ident4()} // Initialize with identity!
 }
 
-// NewObjectFromFile returns an object from file path
 func NewObjectFromFile(path string) *Object {
-	o := &Object{}
-	o.AddMeshFromFile(path)
-	o.SetColor(HexColor("777"))
-	return o
+    o:= &Object{Matrix: mgl64.Ident4()} // Initialize with identity!
+    o.AddMeshFromFile(path)
+    o.SetColor(HexColor("777"))
+    return o
 }
 
-// NewTriangleObject returns an object with generated mesh
-func NewTriangleObject(triangles []*Triangle) *Object {
-	return &Object{NewTriangleMesh(triangles), nil, Discard}
+func NewTriangleObject(triangles[]*Triangle) *Object {
+    return &Object{Mesh: NewTriangleMesh(triangles), Matrix: mgl64.Ident4()} // Initialize with identity!
 }
 
-// NewLineObject returns an object with generated mesh
-func NewLineObject(lines []*Line) *Object {
-	return &Object{NewLineMesh(lines), nil, Discard}
+func NewLineObject(lines[]*Line) *Object {
+    return &Object{Mesh: NewLineMesh(lines), Matrix: mgl64.Ident4()} // Initialize with identity!
 }
 
 // AddMeshFromFile add mesh to obj
@@ -73,7 +70,7 @@ func LoadObjectFromURL(url string) (*Mesh) {
         panic(err)
     }
 	var obj, err2 = LoadOBJFromReader(file.Body)
-	if err != nil {
+	if err2 != nil {
 		panic(err2)
 	}
 	return obj

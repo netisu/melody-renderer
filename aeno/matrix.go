@@ -1,6 +1,10 @@
 package aeno
 
-import "math"
+import (
+	"math"
+
+	"github.com/beorn7/floats"
+)
 
 // Matrix f
 type Matrix struct {
@@ -53,9 +57,11 @@ func Rotate(v Vector, a float64) Matrix {
 // RotateTo f
 func RotateTo(a, b Vector) Matrix {
 	dot := b.Dot(a)
-	if dot == 1 {
+	// To avoid occasional NaN results
+	// TODO: epsilon might be an input or ...
+	if floats.AlmostEqual(dot, 1, .0001) {
 		return Identity()
-	} else if dot == -1 {
+	} else if floats.AlmostEqual(dot, -1, .0001) {
 		return Rotate(a.Perpendicular(), math.Pi)
 	} else {
 		angle := math.Acos(dot)
@@ -74,16 +80,16 @@ func Orient(position, size, up Vector, rotation float64) Matrix {
 }
 
 // Frustum f
-func Frustum(l, r, b, t, n, f float64) Matrix {
-	t1 := 2 * n
-	t2 := r - l
-	t3 := t - b
-	t4 := f - n
+func Frustum(left, right, bottom, top, near, far float64) Matrix {
+	rl := 1 / (right - left)
+	tb := 1 / (top - bottom)
+	nf := 1 / (near - far)
 	return Matrix{
-		t1 / t2, 0, (r + l) / t2, 0,
-		0, t1 / t3, (t + b) / t3, 0,
-		0, 0, (-f - n) / t4, (-t1 * f) / t4,
-		0, 0, -1, 0}
+		2 * near * rl, 0, 0, 0,
+		0, 2 * near * tb, 0, 0,
+		0, 0, (far + near) * nf, -1,
+		0, 0, 2 * far * near * nf, 0,
+	}
 }
 
 // Orthographic f
@@ -189,7 +195,7 @@ func (a Matrix) Perspective(fovy, aspect, near, far float64) Matrix {
 	return Perspective(fovy, aspect, near, far).Mul(a)
 }
 
-// LookAt f
+// LookAt
 func (a Matrix) LookAt(eye, center, up Vector) Matrix {
 	return LookAt(eye, center, up).Mul(a)
 }

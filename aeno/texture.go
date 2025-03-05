@@ -10,7 +10,7 @@ import (
 // Texture interface for texture
 type Texture interface {
 	Sample(u, v float64) Color
-	Texture() image.Image
+	BilinearSample(u, v float64) Color
 }
 
 // LoadTexture returns texture from filepath
@@ -54,11 +54,6 @@ func (t *ImageTexture) Sample(u, v float64) Color {
 	return MakeColor(t.Image.At(x, y))
 }
 
-// Texture texture to image.Image
-func (t *ImageTexture) Texture() image.Image {
-	return t.Image
-}
-
 func LoadTexture(path string) (Texture) {
 	tex, error := LoadTex(path)
 	if error != nil {
@@ -75,4 +70,28 @@ func LoadTextureFromURL(url string) (Texture) {
 	defer resp.Body.Close()
 	im, _, err := image.Decode(resp.Body)
 	return NewImageTexture(im)
+}
+
+func (t *ImageTexture) BilinearSample(u, v float64) Color {
+	v = 1 - v
+	u -= math.Floor(u)
+	v -= math.Floor(v)
+	x := u * float64(t.Width-1)
+	y := v * float64(t.Height-1)
+	x0 := int(x)
+	y0 := int(y)
+	x1 := x0 + 1
+	y1 := y0 + 1
+	x -= float64(x0)
+	y -= float64(y0)
+	c00 := MakeColor(t.Image.At(x0, y0))
+	c01 := MakeColor(t.Image.At(x0, y1))
+	c10 := MakeColor(t.Image.At(x1, y0))
+	c11 := MakeColor(t.Image.At(x1, y1))
+	c := Color{}
+	c = c.Add(c00.MulScalar((1 - x) * (1 - y)))
+	c = c.Add(c10.MulScalar(x * (1 - y)))
+	c = c.Add(c01.MulScalar((1 - x) * y))
+	c = c.Add(c11.MulScalar(x * y))
+	return c
 }

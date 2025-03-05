@@ -274,3 +274,8 @@ func (a VectorW) MulScalar(b float64) VectorW {
 func (a VectorW) DivScalar(b float64) VectorW {
 	return VectorW{a.X / b, a.Y / b, a.Z / b, a.W / b}
 }
+
+// PowScalar f
+func (a Vector) PowScalar(b float64) Vector {
+	return Vector{math.Pow(a.X, b), math.Pow(a.Y, b), math.Pow(a.Z, b)}
+}

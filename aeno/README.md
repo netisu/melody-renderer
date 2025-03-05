@@ -1,6 +1,6 @@
-# FauxGL ReHashed
+# Aeno
 
-Fauxgl is 3D software rendering in pure Go. Without OpenGL, C extensions, or anything of that matter.
+Aeno is a modified FauxGl port that adds optimization, The Weiler Atherton algorithm and pure 3D software rendering in Go. Without OpenGL, C extensions, or anything of that matter.
 
 <br>
 
@@ -8,7 +8,7 @@ Fauxgl is 3D software rendering in pure Go. Without OpenGL, C extensions, or any
 
 ### About
 
-It's like OpenGL, but it's not. It's FauxGL.
+It's like OpenGL, but it's not. It's Based on FauxGL, but it's not. Its Aeno.
 
 It doesn't use your graphics card, only your CPU. So it's slow and unsuitable for realtime rendering. But it's still pretty fast. It works the same way OpenGL works - rasterizing.
 
@@ -31,22 +31,22 @@ It doesn't use your graphics card, only your CPU. So it's slow and unsuitable fo
 
 ### Performance
 
-FauxGL uses all of your CPU cores. But none of your GPU.
+Aeno uses all of your CPU cores. But none of your GPU.
 
 Rendering the Stanford Dragon shown above (871306 triangles) at 1920x1080px takes about 150 milliseconds on my machine. With 4x4=16x supersampling, it takes about 950 milliseconds. This is the time to render a frame and does not include loading the mesh from disk.
 
 ### Go Get
 
-    go get -u github.com/fogleman/fauxgl
+    go get -u github.com/im-aeo/aeno
 
 ### Go Run
 
-    cd go/src/github.com/fogleman/fauxgl
+    cd go/src/github.com/im-aeo/aeno
     go run examples/hello.go
 
 ### Go Doc
 
-https://godoc.org/github.com/fogleman/fauxgl
+https://godoc.org/github.com/im-aeo/aeno
 
 ### Complete Example
 
@@ -54,7 +54,7 @@ https://godoc.org/github.com/fogleman/fauxgl
 package main
 
 import (
-	. "github.com/fogleman/fauxgl"
+	. "github.com/im-aeo/aeno"
 	"github.com/nfnt/resize"
 )
 
