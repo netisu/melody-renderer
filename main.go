@@ -279,7 +279,7 @@ func renderUser(e RenderEvent, w http.ResponseWriter) {
                 Key:                aws.String(outputFile),
                 Body:               bytes.NewReader(buffer),
                 ContentLength:      aws.Int64(size),
-                ContentType:        aws.String(http.DetectContentType(buffer)),
+                ContentType:       'image/png',
                 ContentDisposition: aws.String("attachment"),
                 ACL:                aws.String("public-read"),
         }
@@ -385,7 +385,7 @@ func renderItemPreview(i ItemEvent, w http.ResponseWriter) {
                 Key:                aws.String(outputFile),
                 Body:               bytes.NewReader(buffer),
                 ContentLength:      aws.Int64(size),
-                ContentType:        aws.String(http.DetectContentType(buffer)),
+                ContentType:       'image/png',
                 ContentDisposition: aws.String("attachment"),
                 ACL:                aws.String("public-read"),
         }
@@ -485,7 +485,7 @@ func renderItem(i ItemEvent, w http.ResponseWriter) {
                 Key:                aws.String(outputFile),
                 Body:               bytes.NewReader(buffer),
                 ContentLength:      aws.Int64(size),
-                ContentType:        aws.String(http.DetectContentType(buffer)),
+                ContentType:       'image/png',
                 ContentDisposition: aws.String("attachment"),
                 ACL:                aws.String("public-read"),
         }
@@ -596,7 +596,7 @@ func renderHeadshot(e RenderEvent, w http.ResponseWriter) {
                 Key:                aws.String(outputFile),
                 Body:               bytes.NewReader(buffer),
                 ContentLength:      aws.Int64(size),
-                ContentType:        aws.String(http.DetectContentType(buffer)),
+                ContentType:       'image/png',
                 ContentDisposition: aws.String("attachment"),
                 ACL:                aws.String("public-read"),
         }
