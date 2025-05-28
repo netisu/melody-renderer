@@ -37,11 +37,11 @@ var (
         cdnUrl        = "https://cdn.netisu.com"
         tempDir       = "/tmp" // temporary directory
         region        = "us-east-1"
-        accessKey     = "DO002FLDZLCZVPGTU37L"
-        secretKey     = "pFZlZX6YfLHHB6GcCQOhsPnswyywBkHE7JEmdxpalvQ"
+        accessKey     = "accessKey"
+        secretKey     = "secretKey"
         bucket        = "netisu" // set this to your s3 bucket
         serverAddress = ":4316"  // do not put links like (renderer.example.com) until after pentesting
-        postKey       = "furrysesurio2929"
+        postKey       = "key"
 )
 
 type RenderEvent struct {
