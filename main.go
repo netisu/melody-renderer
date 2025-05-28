@@ -1,7 +1,7 @@
 package main
 
 import (
-        "github.com/im-aeo/aeno"
+        "github.com/netisu/aeno"
         "bytes"
         "encoding/json"
         "fmt"
