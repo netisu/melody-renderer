@@ -1,7 +1,7 @@
 package main
 
 import (
-        "aeno" // if there is no aeno, use fauxgl
+        "github.com/im-aeo/aeno"
         "bytes"
         "encoding/json"
         "fmt"
