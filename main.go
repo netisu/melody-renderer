@@ -720,10 +720,9 @@ func generateObjects(userConfig UserConfig, toolNeeded bool) []*aeno.Object {
 
         var tool string
         if (toolNeeded){
-	        tool := userConfig.Items.Tool.Item
+	        tool = userConfig.Items.Tool.Item
         } else {
-                tool := "none"
-
+                tool = "none"
         }
 	head := userConfig.Items.Head.Item
 
@@ -738,14 +737,14 @@ func generateObjects(userConfig UserConfig, toolNeeded bool) []*aeno.Object {
 	if head != "none" {
 		HeadLoader := &aeno.Object{
 			Mesh:    aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/uploads/"+head+".obj")),
-			Texture: *faceTexture, 
+			Texture: faceTexture, 
 			Color:   aeno.HexColor(headColor),
 		}
 		objects = append(objects, HeadLoader)
 	} else if faceTexture != nil {
 		faceObject := &aeno.Object{
 			Mesh:    aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/assets/cranium.obj")),
-			Texture: *faceTexture,
+			Texture: faceTexture,
 			Color:   aeno.HexColor(headColor),
 		}
 		objects = append(objects, faceObject)
@@ -867,7 +866,7 @@ func generatePreview(itemConfig ItemConfig) []*aeno.Object {
 	if itemType == "head" {
 		HeadLoader := &aeno.Object{
 			Mesh:    aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/uploads/"+itemHash+".obj")),
-			Texture: *faceTexture,
+			Texture: faceTexture,
 			Color:   aeno.HexColor(headColor),
 		}
 		objects = append(objects, HeadLoader)
