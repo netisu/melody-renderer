@@ -10,7 +10,7 @@ import (
 	"path"
 	"reflect"
 	"time"
-
+        "net/http"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -702,7 +702,7 @@ func ToolClause(toolHash, leftArmColor, rightArmColorParam, shirtHash string) []
 	return armObjects
 }
 
-func generateObjects(userConfig UserConfig, bool toolNeeded) []*aeno.Object {
+func generateObjects(userConfig UserConfig, toolNeeded bool) []*aeno.Object {
 	// Extract relevant data from the UserConfig struct
 	torsoColor := userConfig.Colors.TorsoColor
 	leftLegColor := userConfig.Colors.LeftLegColor
@@ -717,6 +717,8 @@ func generateObjects(userConfig UserConfig, bool toolNeeded) []*aeno.Object {
 	shirt := userConfig.Items.Shirt.Item
 	pants := userConfig.Items.Pants.Item
 	tshirt := userConfig.Items.Tshirt.Item
+
+        var tool string
         if (toolNeeded){
 	        tool := userConfig.Items.Tool.Item
         } else {
@@ -736,14 +738,14 @@ func generateObjects(userConfig UserConfig, bool toolNeeded) []*aeno.Object {
 	if head != "none" {
 		HeadLoader := &aeno.Object{
 			Mesh:    aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/uploads/"+head+".obj")),
-			Texture: faceTexture, 
+			Texture: *faceTexture, 
 			Color:   aeno.HexColor(headColor),
 		}
 		objects = append(objects, HeadLoader)
 	} else if faceTexture != nil {
 		faceObject := &aeno.Object{
 			Mesh:    aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/assets/cranium.obj")),
-			Texture: faceTexture,
+			Texture: *faceTexture,
 			Color:   aeno.HexColor(headColor),
 		}
 		objects = append(objects, faceObject)
@@ -756,11 +758,11 @@ func generateObjects(userConfig UserConfig, bool toolNeeded) []*aeno.Object {
 	return objects
 }
 
-func AddFace(faceHash string) *aeno.Texture {
-	if faceHash != "none" && faceHash != "" {
-		return aeno.LoadTextureFromURL(fmt.Sprintf("%s%s", cdnUrl, "/uploads/"+faceHash+".png"))
-	}
-	return nil
+func AddFace(faceHash string) aeno.Texture { // <--- Changed return type to aeno.Texture (no asterisk)
+    if faceHash != "none" && faceHash != "" {
+        return aeno.LoadTextureFromURL(fmt.Sprintf("%s%s", cdnUrl, "/uploads/"+faceHash+".png"))
+    }
+    return nil
 }
 
 func Texturize(torsoColor, leftLegColor, rightLegColor, leftArmColor, toolHash, rightArmColorParam, pantsHash, shirtHash, tshirtHash string) []*aeno.Object {
@@ -865,7 +867,7 @@ func generatePreview(itemConfig ItemConfig) []*aeno.Object {
 	if itemType == "head" {
 		HeadLoader := &aeno.Object{
 			Mesh:    aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/uploads/"+itemHash+".obj")),
-			Texture: faceTexture,
+			Texture: *faceTexture,
 			Color:   aeno.HexColor(headColor),
 		}
 		objects = append(objects, HeadLoader)
