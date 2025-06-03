@@ -717,12 +717,12 @@ func Texturize(colors map[string]string) []*aeno.Object {
 
 func generatePreview(itemConfig ItemConfig) []*aeno.Object {
         // Extract relevant data from the useDefault struct
-        torsoColor := useDefault.Colors.TorsoColor
-        leftLegColor := useDefault.Colors.LeftLegColor
-        rightLegColor := useDefault.Colors.RightLegColor
-        rightArmColor := useDefault.Colors.RightArmColor
-        leftArmColor := useDefault.Colors.LeftArmColor
-        headColor := useDefault.Colors.HeadColor
+		torsoColor := useDefault.Colors["TorsoColor"]
+		leftLegColor := useDefault.Colors["LeftLegColor"]
+		rightLegColor := useDefault.Colors["RightLegColor"]
+		rightArmColor := useDefault.Colors["RightArmColor"]
+		leftArmColor := useDefault.Colors["LeftArmColor"]
+		headColor := useDefault.Colors["HeadColor"]
         faceTexture := AddFace(useDefault.Items.Face)
 
         itemType := itemConfig.ItemType
