@@ -217,7 +217,7 @@ func renderUser(e RenderEvent, w http.ResponseWriter) {
         start := time.Now()
         fmt.Println("Drawing Objects...")
         // Generate the list of objects using the function
-        objects := generateObjects(userJson)
+        objects := generateObjects(userJson, true)
         fmt.Println("Exporting to", tempDir, "thumbnails")
        outputFile := path.Join("thumbnails", e.Hash+".png")
     outputPath := path.Join(tempDir, e.Hash+".png") // Renamed 'path' to 'outputPath' to avoid shadowing
@@ -417,7 +417,7 @@ func renderItem(i ItemEvent, w http.ResponseWriter) {
         // Generate the list of objects using the function
         var objects []*aeno.Object
 
-        objects = RenderItem(itemJson.Item)
+        objects = RenderItem(itemJson)
 
         fmt.Println("Exporting to", tempDir, "thumbnails")
         outputFile := path.Join("thumbnails", i.Hash+".png")
@@ -510,26 +510,11 @@ func renderHeadshot(e RenderEvent, w http.ResponseWriter) {
                 http.Error(w, "UserJson query parameter is missing", http.StatusBadRequest)
                 return
         }
-        updatedUserConfig, err := updateJson(e.RenderJson,
-                userJson.Items.Face,
-                userJson.Colors.HeadColor,
-                userJson.Colors.TorsoColor,
-                userJson.Colors.LeftLegColor,
-                userJson.Colors.RightLegColor,
-                userJson.Colors.LeftArmColor,
-                userJson.Colors.RightArmColor)
-        if err != nil {
-                // Handle the error
-                fmt.Println("Error updating UserConfig:", err)
-                http.Error(w, "Error updating user configuration", http.StatusInternalServerError)
-                return
-        }
-        e.RenderJson = updatedUserConfig
 
         start := time.Now()
         fmt.Println("Drawing Objects...")
         // Generate the list of objects using the function
-        objects := generateObjects(updatedUserConfig)
+        objects := generateObjects(userJson, false)
 
         fmt.Println("Exporting to", tempDir, "thumbnails")
         outputFile := path.Join("thumbnails", e.Hash+"_headshot.png")
