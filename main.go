@@ -664,8 +664,12 @@ func generateObjects(userConfig UserConfig, toolNeeded bool) []*aeno.Object {
         	allObjects = append(allObjects, obj)
     	}
 
-    	hatObjects := RenderItem(userConfig.Items.Hats)
-    	allObjects = append(allObjects, hatObjects...)
+    	for _, hatItemData := range userConfig.Items.Hats {
+        	if obj := RenderItem(hatItemData); obj != nil {
+            	allObjects = append(allObjects, obj)
+        	}
+   		}
+		
 		shirtTextureHash := userConfig.Items.Shirt.Item
 
 		leftArmObjects := ToolClause(
@@ -758,7 +762,7 @@ func generatePreview(itemConfig ItemConfig) []*aeno.Object {
 
         if itemType == "tool" {
                 // Render and append the arm objects
-                armObject := ToolClause(item, "d3d3d3", "d3d3d3", "none")
+                armObject := ToolClause(item, "d3d3d3", "d3d3d3")
                 objects = append(objects, armObject...)
         }
 
