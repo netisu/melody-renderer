@@ -87,40 +87,33 @@ type ItemConfig struct {
 }
 
 var useDefault UserConfig = UserConfig{
-        Items: struct {
-                Face  ItemData   `json:"face"`
-                Hats  []ItemData `json:"hats"`
-                Addon ItemData   `json:"addon"`
-                Tool  ItemData   `json:"tool"`
-                Head  ItemData   `json:"head"`
-                Pants  ItemData `json:"pants"`
-                Shirt  ItemData `json:"shirt"`
-                Tshirt ItemData `json:"tshirt"`
-        }{
-                Face:   ItemData{Item: "none"},
-				Hats:   []ItemData{{Item: "none"}, {Item: "none"}, {Item: "none"}, {Item: "none"}, {Item: "none"}, {Item: "none"}}, // Initialize all 6 hat slots
-                Addon:   ItemData{Item: "none"},
-                Head:    ItemData{Item: "none"},
-                Tool:    ItemData{Item: "none"},
-                Pants:   ItemData{Item: "none"},
-                Shirt:   ItemData{Item: "none"},
-                Tshirt:  ItemData{Item: "none"},
-        },
-        Colors: struct {
-                HeadColor     string `json:"head_color"`
-                TorsoColor    string `json:"torso_color"`
-                LeftLegColor  string `json:"leftLeg_color"`
-                RightLegColor string `json:"rightLeg_color"`
-                LeftArmColor  string `json:"leftArm_color"`
-                RightArmColor string `json:"rightArm_color"`
-        }{
-                HeadColor:     "d3d3d3",
-                TorsoColor:    "a08bd0",
-                LeftLegColor:  "232323",
-                RightLegColor: "232323",
-                LeftArmColor:  "d3d3d3",
-                RightArmColor: "d3d3d3",
-        },
+    Items: struct {
+        Face   ItemData   `json:"face"`
+        Hats   []ItemData `json:"hats"`
+        Addon  ItemData   `json:"addon"`
+        Tool   ItemData   `json:"tool"`
+        Head   ItemData   `json:"head"`
+        Pants  ItemData   `json:"pants"`
+        Shirt  ItemData   `json:"shirt"`
+        Tshirt ItemData   `json:"tshirt"`
+    }{
+        Face:   ItemData{Item: "none"},
+        Hats:   []ItemData{{Item: "none"}, {Item: "none"}, {Item: "none"}, {Item: "none"}, {Item: "none"}, {Item: "none"}}, // Initialize all 6 hat slots
+        Addon:  ItemData{Item: "none"},
+        Head:   ItemData{Item: "none"},
+        Tool:   ItemData{Item: "none"},
+        Pants:  ItemData{Item: "none"},
+        Shirt:  ItemData{Item: "none"},
+        Tshirt: ItemData{Item: "none"},
+    },
+    Colors: map[string]string{
+        "head":       "d3d3d3",
+        "torso":      "a08bd0",
+        "left_leg":   "232323",
+        "right_leg":  "232323",
+        "left_arm":   "d3d3d3",
+        "right_arm":  "d3d3d3",
+    },
 }
 
 func main() {
