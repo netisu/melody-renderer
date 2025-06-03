@@ -61,9 +61,9 @@ type RenderEvent struct {
 }
 
 type ItemEvent struct {
-        RenderType string     `json:"RenderType"`
-        Hash       string     `json:"Hash"`
-        RenderJson ItemData `json:"RenderJson"` // Use interface{} for flexibility
+    RenderType string     `json:"RenderType"`
+    Hash       string     `json:"Hash"`
+    RenderJson ItemConfig `json:"RenderJson"` // Use interface{} for flexibility
 }
 
 type UserConfig struct {
@@ -82,7 +82,7 @@ type UserConfig struct {
 
 type ItemConfig struct {
         ItemType string `json:"ItemType"`
-        Item     string `json:"item"`
+        Item     ItemData `json:"item"`
         PathMod  bool   `json:"PathMod"`
 }
 
@@ -304,18 +304,30 @@ func renderItemPreview(i ItemEvent, w http.ResponseWriter) {
         }
 
         // Get itemJson from the URL query parameters
-        itemJson := i.RenderJson
+        itemConfig := i.RenderJson
+		itemData := itemConfig.Item
 
-        // Check if UserJson is present
-        if reflect.ValueOf(itemJson).IsZero() {
-                log.Println("Warning: itemJson query parameter is missing, the preview will not render !")
-                http.Error(w, "itemJson query parameter is missing", http.StatusBadRequest)
-                return
-        }
+ 		// Check the inner 'Item' field
+        if itemData.Item == "none" {
+        	log.Println("Warning: No item specified in RenderJson for item event.")
+        	http.Error(w, "No item specified to render", http.StatusBadRequest)
+        	return
+    	}
 
         // ... (call generateObjects and GenerateScene with user specific logic)
         start := time.Now()
-        fmt.Println("Drawing Objects...")
+    	fmt.Println("Drawing Object for item:", itemData.Item) // Access the inner 'Item' field
+		var objects []*aeno.Object
+		
+    	// Call RenderItem with the directly accessible ItemData
+    	if obj := RenderItem(itemData); obj != nil {
+        	objects = append(objects, obj)
+    	} else {
+        	log.Println("RenderItem returned nil for item:", itemData.Item)
+        	http.Error(w, "Failed to render item", http.StatusInternalServerError)
+        	return
+    	}
+
         // Generate the list of objects using the function
         objects := generatePreview(i.RenderJson)
         fmt.Println("Exporting to", tempDir, "thumbnails")
