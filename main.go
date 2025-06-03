@@ -241,9 +241,9 @@ func renderUser(e RenderEvent, w http.ResponseWriter) {
 
         fmt.Println("Uploading to the", bucket, "s3 bucket")
 
-        f, err := os.Open(path)
+        f, err := os.Open(outputPath)
         if err != nil {
-                fmt.Printf("Failed to open file %q: %v", path, err) // Log the error
+                fmt.Printf("Failed to open file %q: %v", outputPath, err) // Log the error
         }
         defer f.Close()
 
@@ -268,7 +268,7 @@ func renderUser(e RenderEvent, w http.ResponseWriter) {
         if err != nil {
                 fmt.Println(err.Error())
         }
-        _ = os.Remove(path)
+        _ = os.Remove(outputPath)
 
         fmt.Println("Completed in", time.Since(start))
 
@@ -417,19 +417,15 @@ func renderItem(i ItemEvent, w http.ResponseWriter) {
         // Generate the list of objects using the function
         var objects []*aeno.Object
 
-        if itemJson.ItemType == "head" {
-                objects = RenderHead(itemJson.Item)
-        } else if itemJson.ItemType != "face" {
-                objects = RenderHats(itemJson.Item)
-        }
+        objects = RenderItem(itemJson.Item)
 
         fmt.Println("Exporting to", tempDir, "thumbnails")
         outputFile := path.Join("thumbnails", i.Hash+".png")
-        path := path.Join(tempDir, i.Hash+".png")
+        outputPath := path.Join(tempDir, i.Hash+".png")
 
         aeno.GenerateScene(
                 true,
-                path,
+                outputPath,
                 objects,
                 aeno.V(1, 2, 3),
                 center,
@@ -447,9 +443,9 @@ func renderItem(i ItemEvent, w http.ResponseWriter) {
 
         fmt.Println("Uploading to the", bucket, "s3 bucket")
 
-        f, err := os.Open(path)
+        f, err := os.Open(outputPath)
         if err != nil {
-                fmt.Printf("Failed to open file %q: %v", path, err) // Log the error
+                fmt.Printf("Failed to open file %q: %v", outputPath, err) // Log the error
         }
         defer f.Close()
 
@@ -474,7 +470,7 @@ func renderItem(i ItemEvent, w http.ResponseWriter) {
         if err != nil {
                 fmt.Println(err.Error())
         }
-        _ = os.Remove(path)
+        _ = os.Remove(outputPath)
 
         fmt.Println("Completed in", time.Since(start))
 
@@ -593,9 +589,9 @@ func renderHeadshot(e RenderEvent, w http.ResponseWriter) {
         w.Header().Set("Content-Type", "image/png")
 }
 
-func RenderItem(itemData ItemData) *aenoObject {
+func RenderItem(itemData ItemData) *aeno.Object {
     if itemData.Item == "none" {
-        return nil // No item to render for this slot
+        return continue; // No item to render for this slot
     }
 
     meshURL := fmt.Sprintf("%s/uploads/%s.obj", cdnUrl, itemData.Item)
@@ -612,24 +608,14 @@ func RenderItem(itemData ItemData) *aenoObject {
         }
     }
 
-    return &aenoObject{
+    return &aeno.Object{
         Mesh:    aeno.LoadObjectFromURL(meshURL),
         Texture: aeno.LoadTextureFromURL(textureURL),
     }
 }
-func RenderHats(hats []ItemData) []*aenoObject { // Note: hats is a slice, not variadic anymore
-    var objects []*aenoObject
 
-    for _, hatData := range hats {
-        // RenderItem handles the "none" check and edit style application
-        if obj := RenderItem(hatData); obj != nil {
-            objects = append(objects, obj)
-        }
-    }
-    return objects
-}
-func ToolClause(toolData ItemData, leftArmColor, shirtTextureHash string) []*aenoObject {
-    armObjects := []*aenoObject{}
+func ToolClause(toolData ItemData, leftArmColor, shirtTextureHash string) []*aeno.Object {
+    armObjects := []*aeno.Object{}
 
     var leftArmTexture string
     if shirtTextureHash != "none" {
@@ -649,7 +635,7 @@ func ToolClause(toolData ItemData, leftArmColor, shirtTextureHash string) []*aen
         }
 
         // Add the left arm itself (the one holding the tool)
-        armObjects = append(armObjects, &aenoObject{
+        armObjects = append(armObjects, &aeno.Object{
             Mesh:    aeno.LoadObjectFromURL(armMeshURL),
             Texture: aeno.LoadTextureFromURL(leftArmTexture), // Apply shirt texture if present
             Color:   aeno.HexColor(leftArmColor),
@@ -667,7 +653,7 @@ func ToolClause(toolData ItemData, leftArmColor, shirtTextureHash string) []*aen
 }
 
 func generateObjects(userConfig UserConfig, toolNeeded bool) []*aeno.Object {
-	    var allObjects []*aenoObject
+	    var allObjects []*aeno.Object
         // Extract relevant data from the UserConfig struct
 	    coloredBodyParts := Texturize(userConfig.Colors)
     	allObjects = append(allObjects, coloredBodyParts...)
@@ -702,17 +688,17 @@ func generateObjects(userConfig UserConfig, toolNeeded bool) []*aeno.Object {
         return allObjects
 }
 
-func Texturize(colors map[string]string) []*aenoObject {
-    objects := []*aenoObject{}
+func Texturize(colors map[string]string) []*aeno.Object {
+    objects := []*aeno.Object{}
 
     headColor := colors["head"]
-    objects = append(objects, &aenoObject{
+    objects = append(objects, &aeno.Object{
         Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/assets/cranium.obj")),
         Color: aeno.HexColor(headColor),
     })
 
     torsoColor := colors["torso"]
-    objects = append(objects, &aenoObject{
+    objects = append(objects, &aeno.Object{
         Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/assets/chesticle.obj")),
         Color: aeno.HexColor(torsoColor),
     })
