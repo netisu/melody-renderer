@@ -318,18 +318,9 @@ func renderItemPreview(i ItemEvent, w http.ResponseWriter) {
         start := time.Now()
     	fmt.Println("Drawing Object for item:", itemData.Item) // Access the inner 'Item' field
 		var objects []*aeno.Object
-		
-    	// Call RenderItem with the directly accessible ItemData
-    	if obj := RenderItem(itemData); obj != nil {
-        	objects = append(objects, obj)
-    	} else {
-        	log.Println("RenderItem returned nil for item:", itemData.Item)
-        	http.Error(w, "Failed to render item", http.StatusInternalServerError)
-        	return
-    	}
 
         // Generate the list of objects using the function
-        objects := generatePreview(i.RenderJson)
+        objects := generatePreview(itemConfig)
         fmt.Println("Exporting to", tempDir, "thumbnails")
 
         if i.RenderJson.PathMod {
