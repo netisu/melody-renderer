@@ -723,7 +723,7 @@ func generatePreview(itemConfig ItemConfig) []*aeno.Object {
 		rightArmColor := useDefault.Colors["RightArmColor"]
 		leftArmColor := useDefault.Colors["LeftArmColor"]
 		headColor := useDefault.Colors["HeadColor"]
-        faceTexture := AddFace(useDefault.Items.Face)
+        faceTexture := AddFace(useDefault.Items.Face.Item)
 
         itemType := itemConfig.ItemType
         item := itemConfig.Item
