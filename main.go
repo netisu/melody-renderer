@@ -107,12 +107,12 @@ var useDefault UserConfig = UserConfig{
         Tshirt: ItemData{Item: "none"},
     },
     Colors: map[string]string{
-        "head_color":       "d3d3d3",
-        "torso_color":      "a08bd0",
-        "leftLeg_color":   "232323",
-        "rightLeg_color":  "232323",
-        "leftArm_color":   "d3d3d3",
-        "rightArm_color":  "d3d3d3",
+        "HeadColor":      "d3d3d3",
+        "TorsoColor":     "a08bd0",
+        "LeftLegColor":   "232323",
+        "RightLegColor":  "232323",
+        "LeftArmColor":   "d3d3d3",
+        "RightArmColor":  "d3d3d3",
     },
 }
 
@@ -670,7 +670,7 @@ func generateObjects(userConfig UserConfig, toolNeeded bool) []*aeno.Object {
 
 		leftArmObjects := ToolClause(
         	userConfig.Items.Tool,
-        	userConfig.Colors["leftArm_color"], // Left arm color
+        	userConfig.Colors["left_arm"], // Left arm color
         	shirtTextureHash, // Shirt hash (can be "none")
     	)
     	allObjects = append(allObjects, leftArmObjects...)
@@ -681,13 +681,13 @@ func generateObjects(userConfig UserConfig, toolNeeded bool) []*aeno.Object {
 func Texturize(colors map[string]string) []*aeno.Object {
     objects := []*aeno.Object{}
 
-    headColor := colors["head_color"]
+    headColor := colors["head"]
     objects = append(objects, &aeno.Object{
         Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/assets/cranium.obj")),
         Color: aeno.HexColor(headColor),
     })
 
-    torsoColor := colors["torso_color"]
+    torsoColor := colors["torso"]
     objects = append(objects, &aeno.Object{
         Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/assets/chesticle.obj")),
         Color: aeno.HexColor(torsoColor),
@@ -699,8 +699,8 @@ func Texturize(colors map[string]string) []*aeno.Object {
         Color: aeno.HexColor(rightArmColor),
     })
 
-    leftLegColor := colors["leftLeg_color"]
-    rightLegColor := colors["rightLeg_color"]
+    leftLegColor := colors["left_leg"]
+    rightLegColor := colors["right_leg"]
     objects = append(objects,
         &aeno.Object{
             Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/assets/leg_left.obj")),
