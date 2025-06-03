@@ -63,7 +63,7 @@ type RenderEvent struct {
 type ItemEvent struct {
         RenderType string     `json:"RenderType"`
         Hash       string     `json:"Hash"`
-        RenderJson ItemConfig `json:"RenderJson"` // Use interface{} for flexibility
+        RenderJson ItemData `json:"RenderJson"` // Use interface{} for flexibility
 }
 
 type UserConfig struct {
@@ -606,7 +606,7 @@ func ToolClause(toolData ItemData, leftArmColor, shirtTextureHash string) []*aen
     if shirtTextureHash != "none" {
         leftArmTexture = fmt.Sprintf("%s/uploads/%s.png", cdnUrl, shirtTextureHash)
     } else {
-        leftArmTexture = nil
+        leftArmTexture = ""
     }
 
 
@@ -659,7 +659,7 @@ func generateObjects(userConfig UserConfig, toolNeeded bool) []*aeno.Object {
         	allObjects = append(allObjects, obj)
     	}
 
-    	hatObjects := RenderHats(userConfig.Items.Hats)
+    	hatObjects := RenderItem(userConfig.Items.Hats)
     	allObjects = append(allObjects, hatObjects...)
 		shirtTextureHash := userConfig.Items.Shirt.Item
 
