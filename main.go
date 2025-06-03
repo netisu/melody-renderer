@@ -591,7 +591,7 @@ func renderHeadshot(e RenderEvent, w http.ResponseWriter) {
 
 func RenderItem(itemData ItemData) *aeno.Object {
     if itemData.Item == "none" {
-        return continue; // No item to render for this slot
+        return nil // No item to render for this slot
     }
 
     meshURL := fmt.Sprintf("%s/uploads/%s.obj", cdnUrl, itemData.Item)
