@@ -107,12 +107,12 @@ var useDefault UserConfig = UserConfig{
         Tshirt: ItemData{Item: "none"},
     },
     Colors: map[string]string{
-        "head":       "d3d3d3",
-        "torso":      "a08bd0",
-        "left_leg":   "232323",
-        "right_leg":  "232323",
-        "left_arm":   "d3d3d3",
-        "right_arm":  "d3d3d3",
+        "head_color":       "d3d3d3",
+        "torso_color":      "a08bd0",
+        "leftLeg_color":   "232323",
+        "rightLeg_color":  "232323",
+        "leftArm_color":   "d3d3d3",
+        "rightArm_color":  "d3d3d3",
     },
 }
 
@@ -407,10 +407,12 @@ func renderItem(i ItemEvent, w http.ResponseWriter) {
 
         fmt.Println("Getting itemstring", i.Hash)
 
-        itemJson := i.RenderJson
+ 		// Get itemJson from the URL query parameters
+        itemConfig := i.RenderJson
+		itemData := itemConfig.Item
 
         // Check if UserJson is present
-        if reflect.ValueOf(itemJson).IsZero() {
+        if reflect.ValueOf(itemConfig).IsZero() {
                 log.Println("Warning: itemJson query parameter is missing, the item will not render !")
                 http.Error(w, "itemJson query parameter is missing", http.StatusBadRequest)
                 return
@@ -420,7 +422,7 @@ func renderItem(i ItemEvent, w http.ResponseWriter) {
         // Generate the list of objects using the function
         var objects []*aeno.Object
 
-        objects = RenderItem(itemJson)
+        objects = RenderItem(itemData)
 
         fmt.Println("Exporting to", tempDir, "thumbnails")
         outputFile := path.Join("thumbnails", i.Hash+".png")
@@ -668,7 +670,7 @@ func generateObjects(userConfig UserConfig, toolNeeded bool) []*aeno.Object {
 
 		leftArmObjects := ToolClause(
         	userConfig.Items.Tool,
-        	userConfig.Colors["left_arm"], // Left arm color
+        	userConfig.Colors["leftArm_color"], // Left arm color
         	shirtTextureHash, // Shirt hash (can be "none")
     	)
     	allObjects = append(allObjects, leftArmObjects...)
@@ -679,13 +681,13 @@ func generateObjects(userConfig UserConfig, toolNeeded bool) []*aeno.Object {
 func Texturize(colors map[string]string) []*aeno.Object {
     objects := []*aeno.Object{}
 
-    headColor := colors["head"]
+    headColor := colors["head_color"]
     objects = append(objects, &aeno.Object{
         Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/assets/cranium.obj")),
         Color: aeno.HexColor(headColor),
     })
 
-    torsoColor := colors["torso"]
+    torsoColor := colors["torso_color"]
     objects = append(objects, &aeno.Object{
         Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/assets/chesticle.obj")),
         Color: aeno.HexColor(torsoColor),
@@ -697,8 +699,8 @@ func Texturize(colors map[string]string) []*aeno.Object {
         Color: aeno.HexColor(rightArmColor),
     })
 
-    leftLegColor := colors["left_leg"]
-    rightLegColor := colors["right_leg"]
+    leftLegColor := colors["leftLeg_color"]
+    rightLegColor := colors["rightLeg_color"]
     objects = append(objects,
         &aeno.Object{
             Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/assets/leg_left.obj")),
