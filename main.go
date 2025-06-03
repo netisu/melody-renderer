@@ -320,7 +320,7 @@ func renderItemPreview(i ItemEvent, w http.ResponseWriter) {
 		var objects []*aeno.Object
 
         // Generate the list of objects using the function
-        objects := generatePreview(itemConfig)
+        objects = generatePreview(itemConfig)
         fmt.Println("Exporting to", tempDir, "thumbnails")
 
         if i.RenderJson.PathMod {
