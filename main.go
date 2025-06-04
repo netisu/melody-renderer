@@ -805,7 +805,7 @@ func AddFace(faceHash  string) aeno.Texture {
         var face aeno.Texture
 
         if faceHash != "none" {
-                face = aeno.LoadTextureFromURL(fmt.Sprintf("%s%s", cdnUrl, "/uploads/"+facePath+".png"))
+                face = aeno.LoadTextureFromURL(fmt.Sprintf("%s%s", cdnUrl, "/uploads/"+faceHash+".png"))
         } else {
                 face = aeno.LoadTextureFromURL(fmt.Sprintf("%s%s", cdnUrl, "/assets/default.png"))
         }
