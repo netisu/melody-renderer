@@ -721,121 +721,87 @@ func Texturize(colors map[string]string) []*aeno.Object {
 }
 
 func generatePreview(itemConfig ItemConfig) []*aeno.Object {
-        // Extract relevant data from the useDefault struct
-		torsoColor := useDefault.Colors["TorsoColor"]
-		leftLegColor := useDefault.Colors["LeftLegColor"]
-		rightLegColor := useDefault.Colors["RightLegColor"]
-		rightArmColor := useDefault.Colors["RightArmColor"]
-		leftArmColor := useDefault.Colors["LeftArmColor"]
-		headColor := useDefault.Colors["HeadColor"]
-        faceTexture := AddFace(useDefault.Items.Face.Item)
+		baseUserConfig := useDefault
+	  	coloredBodyParts := Texturize(baseUserConfig)
+    	allObjects = append(allObjects, coloredBodyParts...)
 
         itemType := itemConfig.ItemType
         item := itemConfig.Item
 
-        objects := []*aeno.Object{
-                {
-                        Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/assets/arm_right.obj")),
-                        Color: aeno.HexColor(rightArmColor),
-                },
-                {
-                        Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/assets/chesticle.obj")),
-                        Color: aeno.HexColor(torsoColor),
-                },
-        }
-        if itemType != "tool" {
-                leftArm := &aeno.Object{
-                        Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/assets/arm_left.obj")),
-                        Color: aeno.HexColor(leftArmColor),
-                }
-                objects = append(objects, leftArm)
-        }
-        LeftLeg := &aeno.Object{
-                Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/assets/leg_left.obj")),
-                Color: aeno.HexColor(leftLegColor),
-        }
-        RightLeg := &aeno.Object{
-                Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/assets/leg_right.obj")),
-                Color: aeno.HexColor(rightLegColor),
+    coloredBodyParts := Texturize(baseUserConfig)
+    allObjects = append(allObjects, coloredBodyParts...)
+
+    // 2. Render the specific item from itemConfig
+    itemType := itemConfig.ItemType
+    itemData := itemConfig.Item
+
+    // --- Handle different item types for preview ---
+    switch itemType {
+    case "tool":
+        armObjects := ToolClause(
+            itemData,
+            useDefault.Colors["LeftArmColor"],  // Default left arm color
+            "none",                             // No default shirt texture for tool preview
+        )
+        allObjects = append(allObjects, armObjects...)
+
+    case "head":
+        if obj := RenderItem(itemData); obj != nil {
+            allObjects = append(allObjects, obj)
         }
 
-        objects = append(objects, LeftLeg, RightLeg)
-
-        if itemType == "tool" {
-                // Render and append the arm objects
-                armObject := ToolClause(item, "d3d3d3", "d3d3d3")
-                objects = append(objects, armObject...)
+    case "face":
+        faceTexture := aeno.LoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", cdnUrl, itemData.Item))
+        for _, obj := range allObjects {
+            if obj.Mesh != nil && (obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/head.obj", cdnUrl)) ||
+                                   obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/cranium.obj", cdnUrl))) {
+                obj.Texture = faceTexture
+                break
+            }
         }
 
-        if itemType == "head" {
-                HeadLoader := &aeno.Object{
-                        Mesh:    aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/uploads/"+item+".obj")),
-                        Texture: faceTexture,
-                        Color:   aeno.HexColor(headColor),
-                }
-                objects = append(objects, HeadLoader)
+    case "tshirt":
+        if obj := RenderItem(itemData); obj != nil {
+            allObjects = append(allObjects, obj)
         }
 
-        // Render and append the face object if a face texture is available
-        if itemType == "face" {
-                faceObject := &aeno.Object{
-                        Mesh:    aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/assets/cranium.obj")),
-                        Texture: aeno.LoadTextureFromURL(fmt.Sprintf("%s%s", cdnUrl, "/uploads/"+item+".png")),
-                        Color:   aeno.HexColor(headColor),
-                }
-                objects = append(objects, faceObject)
-        } else if itemType == "head" {
-                HeadLoader := &aeno.Object{
-                        Mesh:    aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/uploads/"+item+".obj")),
-                        Texture: faceTexture,
-                        Color:   aeno.HexColor(headColor),
-                }
-                objects = append(objects, HeadLoader)
-        } else {
-                faceObject := &aeno.Object{
-                        Mesh:    aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/assets/cranium.obj")),
-                        Texture: faceTexture,
-                        Color:   aeno.HexColor(headColor),
-                }
-                objects = append(objects, faceObject)
+    case "shirt":
+        shirtTexture := aeno.LoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", cdnUrl, itemData.Item))
+        // Apply to torso, left arm and right arm
+        for _, obj := range allObjects {
+            if obj.Mesh != nil && (obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/chesticle.obj", cdnUrl)) ||
+                                   obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/arm_right.obj", cdnUrl)) || 
+								   obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/arm_left.obj", cdnUrl))) {
+                obj.Texture = shirtTexture
+            }
         }
 
-        if itemType == "tshirt" {
-                TshirtLoader := &aeno.Object{
-                        Mesh:    aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/assets/tee.obj")),
-                        Texture: aeno.LoadTextureFromURL(fmt.Sprintf("%s%s", cdnUrl, "/uploads/"+item+".png")),
-                }
-                objects = append(objects, TshirtLoader)
+    case "pants":
+        pantsTexture := aeno.LoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", cdnUrl, itemData.Item))
+        // Apply to left and right legs
+        for _, obj := range allObjects {
+            if obj.Mesh != nil && (obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/leg_left.obj", cdnUrl)) ||
+                                   obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/leg_right.obj", cdnUrl))) {
+                obj.Texture = pantsTexture
+            }
         }
 
-        if itemType == "shirt" {
-                shirtTexture := aeno.LoadTextureFromURL(fmt.Sprintf("%s%s", cdnUrl, "/uploads/"+item+".png"))
-                for _, obj := range objects[0:3] { // Skip torso and right arm
-                        obj.Texture = shirtTexture
-                }
+    case "hat":
+        if obj := RenderItem(itemData); obj != nil {
+            allObjects = append(allObjects, obj)
         }
 
-        if itemType == "pants" {
-                pantsTexture := aeno.LoadTextureFromURL(fmt.Sprintf("%s%s", cdnUrl, "/uploads/"+item+".png"))
-                for _, obj := range objects[3:5] { // Skip torso and right arm
-                        obj.Texture = pantsTexture
-                }
+    case "addon":
+        if obj := RenderItem(itemData); obj != nil {
+            allObjects = append(allObjects, obj)
         }
 
-        if itemType == "hat" {
-                hatObject := RenderHats(item)
-                objects = append(objects, hatObject...)
+    default:
+        if obj := RenderItem(itemData); obj != nil {
+            allObjects = append(allObjects, obj)
         }
+    }
 
-        if itemType == "addon" {
-                hatObject := RenderHats(item)
-                objects = append(objects, hatObject...)
-        }
-
-        if itemType == "tool" {
-                armObjects := ToolClause(item, leftArmColor, rightArmColor, "none")
-                objects = append(objects, armObjects...)
-        }
 
         return objects
 }
