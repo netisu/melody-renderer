@@ -722,7 +722,7 @@ func Texturize(colors map[string]string) []*aeno.Object {
 
 func generatePreview(itemConfig ItemConfig) []*aeno.Object {
 		baseUserConfig := useDefault
-	  	coloredBodyParts := Texturize(baseUserConfig)
+	  	coloredBodyParts := Texturize(baseUserConfig.Colors)
     	allObjects = append(allObjects, coloredBodyParts...)
 
         itemType := itemConfig.ItemType
