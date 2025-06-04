@@ -721,17 +721,12 @@ func Texturize(colors map[string]string) []*aeno.Object {
 }
 
 func generatePreview(itemConfig ItemConfig) []*aeno.Object {
+		var allObjects []*aeno.Object
+
 		baseUserConfig := useDefault
 	  	coloredBodyParts := Texturize(baseUserConfig.Colors)
     	allObjects = append(allObjects, coloredBodyParts...)
 
-        itemType := itemConfig.ItemType
-        item := itemConfig.Item
-
-    coloredBodyParts := Texturize(baseUserConfig)
-    allObjects = append(allObjects, coloredBodyParts...)
-
-    // 2. Render the specific item from itemConfig
     itemType := itemConfig.ItemType
     itemData := itemConfig.Item
 
