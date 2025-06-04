@@ -422,7 +422,8 @@ func renderItem(i ItemEvent, w http.ResponseWriter) {
         // Generate the list of objects using the function
         var objects []*aeno.Object
 
-        objects = RenderItem(itemData)
+    	renderedObject := RenderItem(itemData)
+        objects = []*aeno.Object{renderedObject}
 
         fmt.Println("Exporting to", tempDir, "thumbnails")
         outputFile := path.Join("thumbnails", i.Hash+".png")
@@ -669,7 +670,7 @@ func generateObjects(userConfig UserConfig, toolNeeded bool) []*aeno.Object {
             	allObjects = append(allObjects, obj)
         	}
    		}
-		
+
 		shirtTextureHash := userConfig.Items.Shirt.Item
 
 		leftArmObjects := ToolClause(
