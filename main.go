@@ -107,12 +107,12 @@ var useDefault UserConfig = UserConfig{
         Tshirt: ItemData{Item: "none"},
     },
     Colors: map[string]string{
-        "HeadColor":      "d3d3d3",
-        "TorsoColor":     "a08bd0",
-        "LeftLegColor":   "232323",
-        "RightLegColor":  "232323",
-        "LeftArmColor":   "d3d3d3",
-        "RightArmColor":  "d3d3d3",
+        "Head":      "d3d3d3",
+        "Torso":     "a08bd0",
+        "LeftLeg":   "232323",
+        "RightLeg":  "232323",
+        "LeftArm":   "d3d3d3",
+        "RightArm":  "d3d3d3",
     },
 }
 
@@ -675,7 +675,7 @@ func generateObjects(userConfig UserConfig, toolNeeded bool) []*aeno.Object {
 
 		leftArmObjects := ToolClause(
         	userConfig.Items.Tool,
-        	userConfig.Colors["left_arm"], // Left arm color
+        	userConfig.Colors["LeftArm"], // Left arm color
         	shirtTextureHash, // Shirt hash (can be "none")
     	)
     	allObjects = append(allObjects, leftArmObjects...)
@@ -686,26 +686,26 @@ func generateObjects(userConfig UserConfig, toolNeeded bool) []*aeno.Object {
 func Texturize(colors map[string]string) []*aeno.Object {
     objects := []*aeno.Object{}
 
-    headColor := colors["head"]
+    headColor := colors["Head"]
     objects = append(objects, &aeno.Object{
         Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/assets/cranium.obj")),
         Color: aeno.HexColor(headColor),
     })
 
-    torsoColor := colors["torso"]
+    torsoColor := colors["Torso"]
     objects = append(objects, &aeno.Object{
         Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/assets/chesticle.obj")),
         Color: aeno.HexColor(torsoColor),
     })
 
-    rightArmColor := colors["right_arm"] 
+    rightArmColor := colors["RightArm"] 
     objects = append(objects, &aeno.Object{
         Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/assets/arm_right.obj")),
         Color: aeno.HexColor(rightArmColor),
     })
 
-    leftLegColor := colors["left_leg"]
-    rightLegColor := colors["right_leg"]
+    leftLegColor := colors["LeftLeg"]
+    rightLegColor := colors["RightLeg"]
     objects = append(objects,
         &aeno.Object{
             Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/assets/leg_left.obj")),
@@ -735,7 +735,7 @@ func generatePreview(itemConfig ItemConfig) []*aeno.Object {
     case "tool":
         armObjects := ToolClause(
             itemData,
-            useDefault.Colors["LeftArmColor"],  // Default left arm color
+            useDefault.Colors["LeftArm"],  // Default left arm color
             "none",                             // No default shirt texture for tool preview
         )
         allObjects = append(allObjects, armObjects...)
