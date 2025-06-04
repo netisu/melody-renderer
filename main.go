@@ -803,7 +803,7 @@ func generatePreview(itemConfig ItemConfig) []*aeno.Object {
     }
 
 
-        return objects
+        return allObjects
 }
 
 func AddFace(faceHash  string) aeno.Texture {
