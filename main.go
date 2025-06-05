@@ -885,7 +885,7 @@ func generatePreview(itemConfig ItemConfig) []*aeno.Object {
     case "tshirt":
         // T-shirt is an overlay mesh with its own texture.
         // It's not a texture applied to the base body, but a separate "tee" mesh.
-        tshirtTexture := aenoLoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", cdnURL, itemData.Item))
+        tshirtTexture := aeno.LoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", cdnURL, itemData.Item))
         if tshirtTexture != nil { 
             tshirtObj := &aeno.Object{
                 Mesh:    cachedTeeObjMesh, // Use the cached tee mesh
@@ -900,7 +900,7 @@ func generatePreview(itemConfig ItemConfig) []*aeno.Object {
 
 
     case "shirt":
-        shirtTexture := aenoLoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", cdnURL, itemData.Item))
+        shirtTexture := aeno.LoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", cdnURL, itemData.Item))
         if shirtTexture != nil { 
             // Apply to torso, right arm, and left arm (if exists)
             appliedCount := 0
@@ -919,7 +919,7 @@ func generatePreview(itemConfig ItemConfig) []*aeno.Object {
 
 
     case "pants":
-        pantsTexture := aenoLoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", cdnURL, itemData.Item))
+        pantsTexture := aeno.LoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", cdnURL, itemData.Item))
         if pantsTexture != nil { 
             // Apply to left and right legs
             appliedCount := 0
