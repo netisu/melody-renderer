@@ -609,7 +609,7 @@ func RenderItem(itemData ItemData) *aeno.Object {
     }
 }
 
-func ToolClause(toolData ItemData, leftArmColor) []*aeno.Object {
+func ToolClause(toolData ItemData, leftArmColor string) []*aeno.Object {
     armObjects := []*aeno.Object{}
 
     if toolData.Item != "none" {
