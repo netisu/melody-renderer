@@ -115,7 +115,7 @@ func env(key string) string {
     if Direrr != nil {
         fmt.Errorf("Dir %v does not exists", Direrr)
     }
-    err := godotenv.Load(path.Join(dir, ".env"))
+    err := godotenv.Load(path.Join(dir, "../.env"))
     if err != nil {
         log.Fatalf("Note: .env file not found or could not be loaded.")
     }
