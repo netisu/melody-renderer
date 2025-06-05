@@ -36,6 +36,7 @@ var (
         center        = aeno.V(0, 0, 0)
         up            = aeno.V(0, 1.3, 0)
         light         = aeno.V(16,22,25).Normalize()
+        rootDir       = "/var/www/renderer"
 )
 
 type ItemData struct {
@@ -111,11 +112,7 @@ var useDefault UserConfig = UserConfig{
 }
 func env(key string) string {
 
-    dir, Direrr := os.Getwd()
-    if Direrr != nil {
-        fmt.Errorf("Dir %v does not exists", Direrr)
-    }
-    err := godotenv.Load(path.Join(dir, "../.env"))
+    err := godotenv.Load(path.Join(path_dir, ".env"))
     if err != nil {
         log.Fatalf("Note: .env file not found or could not be loaded.")
     }
