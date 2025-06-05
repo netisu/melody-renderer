@@ -196,7 +196,7 @@ func renderUser(e RenderEvent, w http.ResponseWriter) {
         // Delegate user avatar rendering logic here
         s3Config := &aws.Config{
                 Credentials:      credentials.NewStaticCredentials(env("S3_ACCESS_KEY"), env("S3_SECRET_KEY"), ""),
-                env("S3_ENDPOINT"):         aws.String(env("S3_ENDPOINT")),
+                Endpoint:         aws.String(env("S3_ENDPOINT")),
                 Region:           aws.String(env("S3_REGION")),
                 S3ForcePathStyle: aws.Bool(true),
         }
@@ -288,7 +288,7 @@ func renderItemPreview(i ItemEvent, w http.ResponseWriter) {
         // Delegate user avatar rendering logic here
         s3Config := &aws.Config{
                 Credentials:      credentials.NewStaticCredentials(env("S3_ACCESS_KEY"), env("S3_SECRET_KEY"), ""),
-                env("S3_ENDPOINT"):         aws.String(env("S3_ENDPOINT")),
+                Endpoint:         aws.String(env("S3_ENDPOINT")),
                 Region:           aws.String(env("S3_REGION")),
                 S3ForcePathStyle: aws.Bool(true),
         }
@@ -394,7 +394,7 @@ func renderItem(i ItemEvent, w http.ResponseWriter) {
         // Delegate user avatar rendering logic here
         s3Config := &aws.Config{
                 Credentials:      credentials.NewStaticCredentials(env("S3_ACCESS_KEY"), env("S3_SECRET_KEY"), ""),
-                env("S3_ENDPOINT"):         aws.String(env("S3_ENDPOINT")),
+                Endpoint:         aws.String(env("S3_ENDPOINT")),
                 Region:           aws.String(env("S3_REGION")),
                 S3ForcePathStyle: aws.Bool(true),
         }
@@ -493,7 +493,7 @@ func renderHeadshot(e RenderEvent, w http.ResponseWriter) {
         // Delegate user avatar rendering logic here
         s3Config := &aws.Config{
                 Credentials:      credentials.NewStaticCredentials(env("S3_ACCESS_KEY"), env("S3_SECRET_KEY"), ""),
-                env("S3_ENDPOINT"):         aws.String(env("S3_ENDPOINT")),
+                Endpoint:         aws.String(env("S3_ENDPOINT")),
                 Region:           aws.String(env("S3_REGION")),
                 S3ForcePathStyle: aws.Bool(true),
         }
@@ -669,8 +669,6 @@ func generateObjects(userConfig UserConfig, toolNeeded bool) []*aeno.Object {
         	}
    		}
 
-		shirtTextureHash := userConfig.Items.Shirt.Item
-
 		leftArmObjects := ToolClause(
         	userConfig.Items.Tool,
         	userConfig.Colors["LeftArm"], //Left arm color
@@ -744,7 +742,6 @@ func generatePreview(itemConfig ItemConfig) []*aeno.Object {
         armObjects := ToolClause(
             itemData,
             useDefault.Colors["LeftArm"],  // Default left arm color
-            "none",                             // No default shirt texture for tool preview
         )
         allObjects = append(allObjects, armObjects...)
 
