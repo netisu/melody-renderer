@@ -1,6 +1,7 @@
 package main
 
 import (
+        "github.com/joho/godotenv"
         "github.com/netisu/aeno"
         "bytes"
         "encoding/json"
@@ -16,6 +17,7 @@ import (
         "path"
         "reflect"
         "time"
+        
 )
 
 const (
@@ -33,15 +35,6 @@ var (
         center        = aeno.V(0, 0, 0)
         up            = aeno.V(0, 1.3, 0)
         light         = aeno.V(16,22,25).Normalize()
-        endpoint      = "https://nyc3.digitaloceanspaces.com"
-        cdnUrl        = "https://cdn.netisu.com"
-        tempDir       = "/tmp" // temporary directory
-        region        = "us-east-1"
-        accessKey     = "accessKey"
-        secretKey     = "secretKey"
-        bucket        = "netisu" // set this to your s3 bucket
-        serverAddress = ":4316"  // do not put links like (renderer.example.com) until after pentesting
-        postKey       = "key"
 )
 
 type ItemData struct {
@@ -115,11 +108,22 @@ var useDefault UserConfig = UserConfig{
         "RightArm":  "d3d3d3",
     },
 }
+func env(key string) string {
+
+  // load .env file
+  err := godotenv.Load(".env")
+
+  if err != nil {
+    log.Fatalf("Error loading .env file")
+  }
+
+  return os.Getenv(key)
+}
 
 func main() {
         http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
-                if postKey != "" && r.Header.Get("Aeo-Access-Key") != postKey {
+                if env("POST_KEY") != "" && r.Header.Get("Aeo-Access-Key") != env("POST_KEY") {
                         fmt.Println("Unauthorized request")
                         http.Error(w, "Unauthorized request", http.StatusBadRequest)
                         return
@@ -135,8 +139,8 @@ func main() {
         })
 
         // Start the HTTP server
-        fmt.Printf("Starting server on %s\n", serverAddress)
-        if err := http.ListenAndServe(serverAddress, nil); err != nil {
+        fmt.Printf("Starting server on %s\n", env("SERVER_ADDRESS"))
+        if err := http.ListenAndServe(env("SERVER_ADDRESS"), nil); err != nil {
                 fmt.Println("HTTP server error:", err)
         }
 }
@@ -191,9 +195,9 @@ func renderCommand(w http.ResponseWriter, r *http.Request) {
 func renderUser(e RenderEvent, w http.ResponseWriter) {
         // Delegate user avatar rendering logic here
         s3Config := &aws.Config{
-                Credentials:      credentials.NewStaticCredentials(accessKey, secretKey, ""),
-                Endpoint:         aws.String(endpoint),
-                Region:           aws.String(region),
+                Credentials:      credentials.NewStaticCredentials(env("S3_ACCESS_KEY"), env("S3_SECRET_KEY"), ""),
+                env("S3_ENDPOINT"):         aws.String(env("S3_ENDPOINT")),
+                Region:           aws.String(env("S3_REGION")),
                 S3ForcePathStyle: aws.Bool(true),
         }
 
@@ -218,9 +222,9 @@ func renderUser(e RenderEvent, w http.ResponseWriter) {
         fmt.Println("Drawing Objects...")
         // Generate the list of objects using the function
         objects := generateObjects(userJson, true)
-        fmt.Println("Exporting to", tempDir, "thumbnails")
-       outputFile := path.Join("thumbnails", e.Hash+".png")
-    outputPath := path.Join(tempDir, e.Hash+".png") // Renamed 'path' to 'outputPath' to avoid shadowing
+        fmt.Println("Exporting to", env("TEMP_DIR"), "thumbnails")
+        outputFile := path.Join("thumbnails", e.Hash+".png")
+        outputPath := path.Join(env("TEMP_DIR"), e.Hash+".png") // Renamed 'path' to 'outputPath' to avoid shadowing
 
         aeno.GenerateScene(
                 true,
@@ -239,7 +243,7 @@ func renderUser(e RenderEvent, w http.ResponseWriter) {
                 far,
         )
 
-        fmt.Println("Uploading to the", bucket, "s3 bucket")
+        fmt.Println("Uploading to the", env("S3_BUCKET"), "s3 bucket")
 
         f, err := os.Open(outputPath)
         if err != nil {
@@ -253,7 +257,7 @@ func renderUser(e RenderEvent, w http.ResponseWriter) {
         f.Read(buffer)
 
         object := s3.PutObjectInput{
-                Bucket:             aws.String(bucket),
+                Bucket:             aws.String(env("S3_BUCKET")),
                 Key:                aws.String(outputFile),
                 Body:               bytes.NewReader(buffer),
                 ContentLength:      aws.Int64(size),
@@ -283,9 +287,9 @@ func renderItemPreview(i ItemEvent, w http.ResponseWriter) {
 
         // Delegate user avatar rendering logic here
         s3Config := &aws.Config{
-                Credentials:      credentials.NewStaticCredentials(accessKey, secretKey, ""),
-                Endpoint:         aws.String(endpoint),
-                Region:           aws.String(region),
+                Credentials:      credentials.NewStaticCredentials(env("S3_ACCESS_KEY"), env("S3_SECRET_KEY"), ""),
+                env("S3_ENDPOINT"):         aws.String(env("S3_ENDPOINT")),
+                Region:           aws.String(env("S3_REGION")),
                 S3ForcePathStyle: aws.Bool(true),
         }
 
@@ -321,14 +325,14 @@ func renderItemPreview(i ItemEvent, w http.ResponseWriter) {
 
         // Generate the list of objects using the function
         objects = generatePreview(itemConfig)
-        fmt.Println("Exporting to", tempDir, "thumbnails")
+        fmt.Println("Exporting to", env("TEMP_DIR"), "thumbnails")
 
         if i.RenderJson.PathMod {
         outputFile = path.Join("thumbnails", i.Hash+"_preview.png") // Assign to outputFile
-        fullPath = path.Join(tempDir, i.Hash+".png") // Construct the full path
+        fullPath = path.Join(env("TEMP_DIR"), i.Hash+".png") // Construct the full path
     } else {
         outputFile = path.Join("thumbnails", i.Hash+".png")      // Assign to outputFile
-        fullPath =      path.Join(tempDir, i.Hash+".png") // Construct the full path
+        fullPath =      path.Join(env("TEMP_DIR"), i.Hash+".png") // Construct the full path
     }
 
     aeno.GenerateScene(
@@ -348,7 +352,7 @@ func renderItemPreview(i ItemEvent, w http.ResponseWriter) {
         far,
     )
 
-        fmt.Println("Uploading to the", bucket, "s3 bucket")
+        fmt.Println("Uploading to the", env("S3_BUCKET"), "s3 bucket")
 
         f, err := os.Open(fullPath)
         if err != nil {
@@ -362,7 +366,7 @@ func renderItemPreview(i ItemEvent, w http.ResponseWriter) {
         f.Read(buffer)
 
         object := s3.PutObjectInput{
-                Bucket:             aws.String(bucket),
+                Bucket:             aws.String(env("S3_BUCKET")),
                 Key:                aws.String(outputFile),
                 Body:               bytes.NewReader(buffer),
                 ContentLength:      aws.Int64(size),
@@ -389,9 +393,9 @@ func renderItemPreview(i ItemEvent, w http.ResponseWriter) {
 func renderItem(i ItemEvent, w http.ResponseWriter) {
         // Delegate user avatar rendering logic here
         s3Config := &aws.Config{
-                Credentials:      credentials.NewStaticCredentials(accessKey, secretKey, ""),
-                Endpoint:         aws.String(endpoint),
-                Region:           aws.String(region),
+                Credentials:      credentials.NewStaticCredentials(env("S3_ACCESS_KEY"), env("S3_SECRET_KEY"), ""),
+                env("S3_ENDPOINT"):         aws.String(env("S3_ENDPOINT")),
+                Region:           aws.String(env("S3_REGION")),
                 S3ForcePathStyle: aws.Bool(true),
         }
 
@@ -425,9 +429,9 @@ func renderItem(i ItemEvent, w http.ResponseWriter) {
     	renderedObject := RenderItem(itemData)
         objects = []*aeno.Object{renderedObject}
 
-        fmt.Println("Exporting to", tempDir, "thumbnails")
+        fmt.Println("Exporting to", env("TEMP_DIR"), "thumbnails")
         outputFile := path.Join("thumbnails", i.Hash+".png")
-        outputPath := path.Join(tempDir, i.Hash+".png")
+        outputPath := path.Join(env("TEMP_DIR"), i.Hash+".png")
 
         aeno.GenerateScene(
                 true,
@@ -447,7 +451,7 @@ func renderItem(i ItemEvent, w http.ResponseWriter) {
         )
 
 
-        fmt.Println("Uploading to the", bucket, "s3 bucket")
+        fmt.Println("Uploading to the", env("S3_BUCKET"), "s3 bucket")
 
         f, err := os.Open(outputPath)
         if err != nil {
@@ -461,7 +465,7 @@ func renderItem(i ItemEvent, w http.ResponseWriter) {
         f.Read(buffer)
 
         object := s3.PutObjectInput{
-                Bucket:             aws.String(bucket),
+                Bucket:             aws.String(env("S3_BUCKET")),
                 Key:                aws.String(outputFile),
                 Body:               bytes.NewReader(buffer),
                 ContentLength:      aws.Int64(size),
@@ -488,9 +492,9 @@ func renderItem(i ItemEvent, w http.ResponseWriter) {
 func renderHeadshot(e RenderEvent, w http.ResponseWriter) {
         // Delegate user avatar rendering logic here
         s3Config := &aws.Config{
-                Credentials:      credentials.NewStaticCredentials(accessKey, secretKey, ""),
-                Endpoint:         aws.String(endpoint),
-                Region:           aws.String(region),
+                Credentials:      credentials.NewStaticCredentials(env("S3_ACCESS_KEY"), env("S3_SECRET_KEY"), ""),
+                env("S3_ENDPOINT"):         aws.String(env("S3_ENDPOINT")),
+                Region:           aws.String(env("S3_REGION")),
                 S3ForcePathStyle: aws.Bool(true),
         }
 
@@ -522,10 +526,10 @@ func renderHeadshot(e RenderEvent, w http.ResponseWriter) {
         // Generate the list of objects using the function
         objects := generateObjects(userJson, false)
 
-        fmt.Println("Exporting to", tempDir, "thumbnails")
+        fmt.Println("Exporting to", env("TEMP_DIR"), "thumbnails")
         outputFile := path.Join("thumbnails", e.Hash+"_headshot.png")
 
-        path := path.Join(tempDir, e.Hash+"_headshot.png")
+        path := path.Join(env("TEMP_DIR"), e.Hash+"_headshot.png")
         aeno.GenerateScene(
                 false,
                 path,
@@ -543,7 +547,7 @@ func renderHeadshot(e RenderEvent, w http.ResponseWriter) {
                 far,
         )
 
-        fmt.Println("Uploading to the", bucket, "s3 bucket")
+        fmt.Println("Uploading to the", env("S3_BUCKET"), "s3 bucket")
 
         f, err := os.Open(path)
         if err != nil {
@@ -557,7 +561,7 @@ func renderHeadshot(e RenderEvent, w http.ResponseWriter) {
         f.Read(buffer)
 
         object := s3.PutObjectInput{
-                Bucket:             aws.String(bucket),
+                Bucket:             aws.String(env("S3_BUCKET")),
                 Key:                aws.String(outputFile),
                 Body:               bytes.NewReader(buffer),
                 ContentLength:      aws.Int64(size),
@@ -585,16 +589,16 @@ func RenderItem(itemData ItemData) *aeno.Object {
         return nil // No item to render for this slot
     }
 
-    meshURL := fmt.Sprintf("%s/uploads/%s.obj", cdnUrl, itemData.Item)
-    textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnUrl, itemData.Item)
+    meshURL := fmt.Sprintf("%s/uploads/%s.obj", env("CDN_URL"), itemData.Item)
+    textureURL := fmt.Sprintf("%s/uploads/%s.png", env("CDN_URL"), itemData.Item)
 
     if itemData.EditStyle != nil {
         if itemData.EditStyle.IsModel {
-            meshURL = fmt.Sprintf("%s/uploads/%s.obj", cdnUrl, itemData.EditStyle.Hash)
+            meshURL = fmt.Sprintf("%s/uploads/%s.obj", env("CDN_URL"), itemData.EditStyle.Hash)
             log.Printf("DEBUG: Applying model override for item %s with style %s\n", itemData.Item, itemData.EditStyle.Hash)
         }
         if itemData.EditStyle.IsTexture {
-            textureURL = fmt.Sprintf("%s/uploads/%s.png", cdnUrl, itemData.EditStyle.Hash)
+            textureURL = fmt.Sprintf("%s/uploads/%s.png", env("CDN_URL"), itemData.EditStyle.Hash)
             log.Printf("DEBUG: Applying texture override for item %s with style %s\n", itemData.Item, itemData.EditStyle.Hash)
         }
     }
@@ -605,17 +609,11 @@ func RenderItem(itemData ItemData) *aeno.Object {
     }
 }
 
-func ToolClause(toolData ItemData, leftArmColor, shirtTextureHash string) []*aeno.Object {
+func ToolClause(toolData ItemData, leftArmColor) []*aeno.Object {
     armObjects := []*aeno.Object{}
 
-    var armTexture aeno.Texture 
-    if shirtTextureHash != "none" {
-		textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnUrl, shirtTextureHash)
-		armTexture = aeno.LoadTextureFromURL(textureURL)
-	}
-
     if toolData.Item != "none" {
-        armMeshURL := fmt.Sprintf("%s/assets/arm_tool.obj", cdnUrl)
+        armMeshURL := fmt.Sprintf("%s/assets/arm_tool.obj", env("CDN_URL"))
         
         // Load the tool object itself
         toolObj := RenderItem(toolData)
@@ -626,14 +624,12 @@ func ToolClause(toolData ItemData, leftArmColor, shirtTextureHash string) []*aen
         // Add the left arm itself (the one holding the tool)
         armObjects = append(armObjects, &aeno.Object{
             Mesh:    aeno.LoadObjectFromURL(armMeshURL),
-            Texture: armTexture, // Apply shirt texture if present
             Color:   aeno.HexColor(leftArmColor),
         })
 
     } else {
         armObjects = append(armObjects, &aeno.Object{
-            Mesh:    aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/arm_left.obj", cdnUrl)),
-            Texture: armTexture, // Apply shirt texture if present
+            Mesh:    aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/arm_left.obj", env("CDN_URL"))),
             Color:   aeno.HexColor(leftArmColor),
         })
     }
@@ -652,29 +648,17 @@ func generateObjects(userConfig UserConfig, toolNeeded bool) []*aeno.Object {
     	}
 
         for _, obj := range allObjects {
-            if obj.Mesh != nil && (obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/cranium.obj", cdnUrl))) {
+            if obj.Mesh != nil && (obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/cranium.obj", env("CDN_URL")))) {
                 obj.Texture = AddFace(userConfig.Items.Face.Item)
                 break
             }
         }
 
-        if userConfig.Items.Shirt.Item != "none" {
-        shirtTexture := aeno.LoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", cdnUrl, userConfig.Items.Shirt.Item))
-        // Apply to torso, left arm and right arm
-        for _, obj := range allObjects {
-            if obj.Mesh != nil && (obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/chesticle.obj", cdnUrl)) ||
-                                   obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/arm_right.obj", cdnUrl)) || 
-								   obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/arm_left.obj", cdnUrl))) {
-                obj.Texture = shirtTexture
-            }
-        }
-    }
-
     if userConfig.Items.Pants.Item != "none" {   
-        pantsTexture := aeno.LoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", cdnUrl, userConfig.Items.Pants.Item))
+        pantsTexture := aeno.LoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", env("CDN_URL"), userConfig.Items.Pants.Item))
         for _, obj := range allObjects {
-            if obj.Mesh != nil && (obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/leg_left.obj", cdnUrl)) ||
-                                   obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/leg_right.obj", cdnUrl))) {
+            if obj.Mesh != nil && (obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/leg_left.obj", env("CDN_URL"))) ||
+                                   obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/leg_right.obj", env("CDN_URL")))) {
                 obj.Texture = pantsTexture
             }
         }
@@ -689,10 +673,20 @@ func generateObjects(userConfig UserConfig, toolNeeded bool) []*aeno.Object {
 
 		leftArmObjects := ToolClause(
         	userConfig.Items.Tool,
-        	userConfig.Colors["LeftArm"], // Left arm color
-        	shirtTextureHash, // Shirt hash (can be "none")
+        	userConfig.Colors["LeftArm"], //Left arm color
     	)
     	allObjects = append(allObjects, leftArmObjects...)
+        if userConfig.Items.Shirt.Item != "none" {
+            shirtTexture := aeno.LoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", env("CDN_URL"), userConfig.Items.Shirt.Item))
+            // Apply to torso, left arm and right arm
+            for _, obj := range allObjects {
+                if obj.Mesh != nil && (obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/chesticle.obj", env("CDN_URL"))) ||
+                                    obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/arm_right.obj", env("CDN_URL"))) || 
+								    obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/arm_left.obj", env("CDN_URL")))) {
+                    obj.Texture = shirtTexture
+                }
+            }
+        }
 
         return allObjects
 }
@@ -702,19 +696,19 @@ func Texturize(colors map[string]string) []*aeno.Object {
 
     headColor := colors["Head"]
     objects = append(objects, &aeno.Object{
-        Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/assets/cranium.obj")),
+        Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", env("CDN_URL"), "/assets/cranium.obj")),
         Color: aeno.HexColor(headColor),
     })
 
     torsoColor := colors["Torso"]
     objects = append(objects, &aeno.Object{
-        Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/assets/chesticle.obj")),
+        Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", env("CDN_URL"), "/assets/chesticle.obj")),
         Color: aeno.HexColor(torsoColor),
     })
 
     rightArmColor := colors["RightArm"] 
     objects = append(objects, &aeno.Object{
-        Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/assets/arm_right.obj")),
+        Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", env("CDN_URL"), "/assets/arm_right.obj")),
         Color: aeno.HexColor(rightArmColor),
     })
 
@@ -722,11 +716,11 @@ func Texturize(colors map[string]string) []*aeno.Object {
     rightLegColor := colors["RightLeg"]
     objects = append(objects,
         &aeno.Object{
-            Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/assets/leg_left.obj")),
+            Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", env("CDN_URL"), "/assets/leg_left.obj")),
             Color: aeno.HexColor(leftLegColor),
         },
         &aeno.Object{
-            Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", cdnUrl, "/assets/leg_right.obj")),
+            Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", env("CDN_URL"), "/assets/leg_right.obj")),
             Color: aeno.HexColor(rightLegColor),
         },
     )
@@ -761,8 +755,8 @@ func generatePreview(itemConfig ItemConfig) []*aeno.Object {
 
     case "face":
         for _, obj := range allObjects {
-            if obj.Mesh != nil && (obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/head.obj", cdnUrl)) ||
-                                   obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/cranium.obj", cdnUrl))) {
+            if obj.Mesh != nil && (obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/head.obj", env("CDN_URL"))) ||
+                                   obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/cranium.obj", env("CDN_URL")))) {
                 obj.Texture = AddFace(itemData.Item)
                 break
             }
@@ -774,22 +768,22 @@ func generatePreview(itemConfig ItemConfig) []*aeno.Object {
         }
 
     case "shirt":
-        shirtTexture := aeno.LoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", cdnUrl, itemData.Item))
+        shirtTexture := aeno.LoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", env("CDN_URL"), itemData.Item))
         // Apply to torso, left arm and right arm
         for _, obj := range allObjects {
-            if obj.Mesh != nil && (obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/chesticle.obj", cdnUrl)) ||
-                                   obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/arm_right.obj", cdnUrl)) || 
-								   obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/arm_left.obj", cdnUrl))) {
+            if obj.Mesh != nil && (obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/chesticle.obj", env("CDN_URL"))) ||
+                                   obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/arm_right.obj", env("CDN_URL"))) || 
+								   obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/arm_left.obj", env("CDN_URL")))) {
                 obj.Texture = shirtTexture
             }
         }
 
     case "pants":
-        pantsTexture := aeno.LoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", cdnUrl, itemData.Item))
+        pantsTexture := aeno.LoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", env("CDN_URL"), itemData.Item))
         // Apply to left and right legs
         for _, obj := range allObjects {
-            if obj.Mesh != nil && (obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/leg_left.obj", cdnUrl)) ||
-                                   obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/leg_right.obj", cdnUrl))) {
+            if obj.Mesh != nil && (obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/leg_left.obj", env("CDN_URL"))) ||
+                                   obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/leg_right.obj", env("CDN_URL")))) {
                 obj.Texture = pantsTexture
             }
         }
@@ -818,9 +812,9 @@ func AddFace(faceHash string) aeno.Texture {
         var face aeno.Texture
 
         if faceHash != "none" {
-                face = aeno.LoadTextureFromURL(fmt.Sprintf("%s%s", cdnUrl, "/uploads/"+faceHash+".png"))
+                face = aeno.LoadTextureFromURL(fmt.Sprintf("%s%s", env("CDN_URL"), "/uploads/"+faceHash+".png"))
         } else {
-                face = aeno.LoadTextureFromURL(fmt.Sprintf("%s%s", cdnUrl, "/assets/default.png"))
+                face = aeno.LoadTextureFromURL(fmt.Sprintf("%s%s", env("CDN_URL"), "/assets/default.png"))
         }
 
         return face
