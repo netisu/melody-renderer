@@ -111,11 +111,10 @@ var useDefault UserConfig = UserConfig{
 func env(key string) string {
 
   // load .env file
-  err := godotenv.Load(".env")
-
-  if err != nil {
-    log.Fatalf("Error loading .env file")
-  }
+    err := godotenv.Load()
+    if err != nil {
+        log.Fatalf("Note: .env file not found or could not be loaded.")
+    }
 
   return os.Getenv(key)
 }
