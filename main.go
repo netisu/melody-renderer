@@ -608,13 +608,11 @@ func RenderItem(itemData ItemData) *aeno.Object {
 func ToolClause(toolData ItemData, leftArmColor, shirtTextureHash string) []*aeno.Object {
     armObjects := []*aeno.Object{}
 
-    var leftArmTexture string
+    var armTexture *aeno.Texture 
     if shirtTextureHash != "none" {
-        leftArmTexture = fmt.Sprintf("%s/uploads/%s.png", cdnUrl, shirtTextureHash)
-    } else {
-        leftArmTexture = ""
-    }
-
+		textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnUrl, shirtTextureHash)
+		armTexture = aeno.LoadTextureFromURL(textureURL)
+	}
 
     if toolData.Item != "none" {
         armMeshURL := fmt.Sprintf("%s/assets/arm_tool.obj", cdnUrl)
@@ -628,14 +626,14 @@ func ToolClause(toolData ItemData, leftArmColor, shirtTextureHash string) []*aen
         // Add the left arm itself (the one holding the tool)
         armObjects = append(armObjects, &aeno.Object{
             Mesh:    aeno.LoadObjectFromURL(armMeshURL),
-            Texture: aeno.LoadTextureFromURL(leftArmTexture), // Apply shirt texture if present
+            Texture: armTexture, // Apply shirt texture if present
             Color:   aeno.HexColor(leftArmColor),
         })
 
     } else {
         armObjects = append(armObjects, &aeno.Object{
             Mesh:    aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/arm_left.obj", cdnUrl)),
-            Texture: aeno.LoadTextureFromURL(leftArmTexture), // Apply shirt texture if present
+            Texture: aarmTexture, // Apply shirt texture if present
             Color:   aeno.HexColor(leftArmColor),
         })
     }
