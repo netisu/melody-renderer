@@ -654,7 +654,7 @@ func generateObjects(userConfig UserConfig, toolNeeded bool) []*aeno.Object {
             }
         }
 
-    if userConfig.Items.Pants.Item != "none" {   
+    if userConfig.Items.Pants.Item  != nil {   
         pantsTexture := aeno.LoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", env("CDN_URL"), userConfig.Items.Pants.Item))
         for _, obj := range allObjects {
             if obj.Mesh != nil && (obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/leg_left.obj", env("CDN_URL"))) ||
@@ -674,7 +674,7 @@ func generateObjects(userConfig UserConfig, toolNeeded bool) []*aeno.Object {
         	userConfig.Colors["LeftArm"], //Left arm color
     	)
     	allObjects = append(allObjects, leftArmObjects...)
-        if userConfig.Items.Shirt.Item != "none" {
+        if userConfig.Items.Shirt.Item != nil {
             shirtTexture := aeno.LoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", env("CDN_URL"), userConfig.Items.Shirt.Item))
             // Apply to torso, left arm and right arm
             for _, obj := range allObjects {
@@ -808,7 +808,7 @@ func generatePreview(itemConfig ItemConfig) []*aeno.Object {
 func AddFace(faceHash string) aeno.Texture {
         var face aeno.Texture
 
-        if faceHash != "none" {
+        if faceHash != nil {
                 face = aeno.LoadTextureFromURL(fmt.Sprintf("%s%s", env("CDN_URL"), "/uploads/"+faceHash+".png"))
         } else {
                 face = aeno.LoadTextureFromURL(fmt.Sprintf("%s%s", env("CDN_URL"), "/assets/default.png"))
