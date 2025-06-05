@@ -605,150 +605,211 @@ func RenderItem(itemData ItemData) *aeno.Object {
 
     return &aeno.Object{
         Mesh:    aeno.LoadObjectFromURL(meshURL),
+        Color: aeno.Transparent,
         Texture: aeno.LoadTextureFromURL(textureURL),
     }
 }
 
-func ToolClause(toolData ItemData, leftArmColor string) []*aeno.Object {
-    armObjects := []*aeno.Object{}
+func ToolClause(toolData ItemData, leftArmColor, rightArmColor, shirtTextureHash string) []*aeno.Object {
+    objects := []*aeno.Object{}
+    cdnUrl := env("CDN_URL")
 
-    if toolData.Item != "none" {
-        armMeshURL := fmt.Sprintf("%s/assets/arm_tool.obj", env("CDN_URL"))
-        
-        // Load the tool object itself
-        toolObj := RenderItem(toolData)
-        if toolObj != nil {
-            armObjects = append(armObjects, toolObj)
-        }
-
-        // Add the left arm itself (the one holding the tool)
-        armObjects = append(armObjects, &aeno.Object{
-            Mesh:    aeno.LoadObjectFromURL(armMeshURL),
-            Color:   aeno.HexColor(leftArmColor),
-        })
-
-    } else {
-        armObjects = append(armObjects, &aeno.Object{
-            Mesh:    aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/arm_left.obj", env("CDN_URL"))),
-            Color:   aeno.HexColor(leftArmColor),
-        })
+    defaultLeftArmMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/arm_left.obj", cdnUrl))
+    defaultLeftArmObj := &aeno.Object{
+        Mesh:  defaultLeftArmMesh,
+        Color: aeno.HexColor(leftArmColor),
     }
 
-    return armObjects
-}
+    if shirtTextureHash != "none" {
+        shirtTexture := aeno.LoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", cdnUrl, shirtTextureHash))
+        if shirtTexture != (aeno.Texture{}) { 
+            defaultLeftArmObj.Texture = shirtTexture
+        }
+    }
 
-func generateObjects(userConfig UserConfig, toolNeeded bool) []*aeno.Object {
-	    var allObjects []*aeno.Object
+    if toolData.Item != "none" {
+        armToolMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/arm_tool.obj", cdnUrl))
 
-        cachedCraniumMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/cranium.obj", env("CDN_URL")))
-	    cachedLegLeftMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/leg_left.obj", env("CDN_URL")))
-	    cachedLegRightMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/leg_right.obj", env("CDN_URL")))
-	    cachedChesticleMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/chesticle.obj", env("CDN_URL")))
-	    cachedArmRightMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/arm_right.obj", env("CDN_URL")))
-	    cachedArmLeftMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/arm_left.obj", env("CDN_URL")))
-	    cachedTeeMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/tee.obj", env("CDN_URL")))
-
-        // Extract relevant data from the UserConfig struct
-	    coloredBodyParts := Texturize(userConfig.Colors)
-    	allObjects = append(allObjects, coloredBodyParts...)
-
-        for _, obj := range allObjects {
-		    if obj.Mesh == cachedCraniumMesh { 
-			    obj.Texture = AddFace(userConfig.Items.Face.Item)
-			    break
-		    }
+        if toolMesh := RenderItem(toolData.Item); toolMesh != nil {
+		    objects = append(objects, obj)
+            fmt.Printf("ToolClause: Added tool mesh %s\n", toolData.Item)
 	    }
-
-        if obj := RenderItem(userConfig.Items.Addon); obj != nil {
-		    allObjects = append(allObjects, obj)
-	    }
-
-        if userConfig.Items.Pants.Item != "none" {
-		    pantsTexture := aeno.LoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", env("CDN_URL"), userConfig.Items.Pants.Item))
-            // Always check if the texture loaded successfully
-            if pantsTexture != nil {
-                for _, obj := range allObjects {
-                    if obj.Mesh == cachedLegLeftMesh || obj.Mesh == cachedLegRightMesh { // Compare against cached meshes
-                        obj.Texture = pantsTexture
-                    }
+        if armToolMesh != nil {
+            armToolObj := &aeno.Object{
+                Mesh:  armToolMesh,
+                Color: aeno.HexColor(leftArmColor),
+            }
+            // Apply shirt texture to the arm_tool if a shirt is worn
+            if shirtTextureHash != "none" {
+                shirtTexture := aeno.LoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", cdnUrl, shirtTextureHash))
+                if shirtTexture != (aeno.Texture{}) { // Check for zero-value texture
+                    armToolObj.Texture = shirtTexture
                 }
             }
-	    }
-
-    	for _, hatItemData := range userConfig.Items.Hats {
-        	if obj := RenderItem(hatItemData); obj != nil {
-            	allObjects = append(allObjects, obj)
-        	}
-   		}
-
-		leftArmObjects := ToolClause(
-        	userConfig.Items.Tool,
-        	userConfig.Colors["LeftArm"], //Left arm color
-    	)
-
-    	allObjects = append(allObjects, leftArmObjects...)
-
-        if userConfig.Items.Shirt.Item != "none" {
-		    shirtTexture := aeno.LoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", env("CDN_URL"), userConfig.Items.Shirt.Item))
-            if shirtTexture != nil {
-                for _, obj := range allObjects {
-                    if obj.Mesh == cachedChesticleMesh || obj.Mesh == cachedArmRightMesh || obj.Mesh == cachedArmLeftMesh {
-                        obj.Texture = shirtTexture
-                    }
-                }
-            }
-	    }
-
-        if userConfig.Items.Tshirt.Item != "none" {
-		    tshirtTexture := aeno.LoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", env("CDN_URL"), userConfig.Items.Tshirt.Item))
-            if tshirtTexture != nil {
-                TshirtLoader := &aeno.Object{
-                    Mesh:    cachedTeeMesh,
-                    Color:   aeno.Transparent,
-                    Texture: tshirtTexture,
-                }
-                allObjects = append(allObjects, TshirtLoader)
-            }
-	    }
-
-        return allObjects
-}
-
-func Texturize(colors map[string]string) []*aeno.Object {
-    objects := []*aeno.Object{}
-
-    headColor := colors["Head"]
-    objects = append(objects, &aeno.Object{
-        Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", env("CDN_URL"), "/assets/cranium.obj")),
-        Color: aeno.HexColor(headColor),
-    })
-
-    torsoColor := colors["Torso"]
-    objects = append(objects, &aeno.Object{
-        Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", env("CDN_URL"), "/assets/chesticle.obj")),
-        Color: aeno.HexColor(torsoColor),
-    })
-
-    rightArmColor := colors["RightArm"] 
-    objects = append(objects, &aeno.Object{
-        Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", env("CDN_URL"), "/assets/arm_right.obj")),
-        Color: aeno.HexColor(rightArmColor),
-    })
-
-    leftLegColor := colors["LeftLeg"]
-    rightLegColor := colors["RightLeg"]
-    objects = append(objects,
-        &aeno.Object{
-            Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", env("CDN_URL"), "/assets/leg_left.obj")),
-            Color: aeno.HexColor(leftLegColor),
-        },
-        &aeno.Object{
-            Mesh:  aeno.LoadObjectFromURL(fmt.Sprintf("%s%s", env("CDN_URL"), "/assets/leg_right.obj")),
-            Color: aeno.HexColor(rightLegColor),
-        },
-    )
+            objects = append(objects, armToolObj)
+            fmt.Printf("ToolClause: Added arm_tool mesh.\n")
+        }
+    } else {
+        // If no tool, add the default left arm
+        objects = append(objects, defaultLeftArmObj)
+        fmt.Printf("ToolClause: No tool, added default left arm.\n")
+    }
 
     return objects
+}
+
+func generateObjects(userConfig UserConfig, toolNeeded bool) []*aeno.Object { // toolNeeded might be unused now
+    fmt.Printf("generateObjects: Starting. UserConfig: %+v\n", userConfig)
+
+    var allObjects []*aeno.Object
+
+    // Load cranium mesh once for face application in generateObjects
+    cdnURL := env("CDN_URL")
+    cachedCraniumMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/cranium.obj", cdnURL))
+    fmt.Printf("generateObjects: Cached Cranium Mesh Pointer (for cranium): %p\n", cachedCraniumMesh)
+
+    // 1. Call Texturize to get the core body parts with colors, shirt, pants, T-shirt, and tool-related arms.
+    // Texturize now encapsulates most of the base avatar rendering.
+    bodyAndApparelObjects := Texturize(userConfig)
+    allObjects = append(allObjects, bodyAndApparelObjects...)
+    fmt.Printf("generateObjects: Objects from Texturize received. Total objects: %d\n", len(allObjects))
+
+    // 2. Add Cranium mesh and apply head color.
+    // This is added here because Texturize, does not include cranium.obj as we need it for later.
+    allObjects = append(allObjects, &aeno.Object{
+        Mesh:  cachedCraniumMesh,
+        Color: aeno.HexColor(userConfig.Colors["Head"]),
+    })
+    fmt.Printf("generateObjects: Cranium mesh added. Total objects: %d\n", len(allObjects))
+
+    fmt.Printf("generateObjects: Applying Face. Face Item: %s\n", userConfig.Items.Face.Item)
+    for _, obj := range allObjects {
+        if obj.Mesh != nil {
+            fmt.Printf("  generateObjects: Checking obj mesh %p against cached cranium mesh %p for face texture application.\n", obj.Mesh, cachedCraniumMesh)
+            if obj.Mesh == cachedCraniumMesh {
+                fmt.Printf("  generateObjects: FOUND cranium mesh for face! Applying face texture.\n")
+                obj.Texture = AddFace(userConfig.Items.Face.Item)
+                break
+            }
+        }
+    }
+
+    fmt.Printf("generateObjects: Processing Addon. Addon Item: %s\n", userConfig.Items.Addon.Item)
+    if obj := RenderItem(userConfig.Items.Addon); obj != nil {
+        allObjects = append(allObjects, obj)
+        fmt.Printf("generateObjects: Addon object added. Total objects: %d\n", len(allObjects))
+    }
+
+    fmt.Printf("generateObjects: Processing Hats. Count: %d\n", len(userConfig.Items.Hats))
+    for _, hatItemData := range userConfig.Items.Hats {
+        fmt.Printf("  Hat Item: %s\n", hatItemData.Item)
+        if obj := RenderItem(hatItemData); obj != nil {
+            allObjects = append(allObjects, obj)
+            fmt.Printf("Hat object added. Total objects: %d\n", len(allObjects))
+        }
+    }
+
+    fmt.Printf("generateObjects: Finished. Final object count: %d\n", len(allObjects))
+    return allObjects
+}
+
+func Texturize(config UserConfig) []*aeno.Object {
+	objects := []*aeno.Object{}
+    cdnUrl := env("CDN_URL")
+
+    // --- CACHED MESH REFERENCES FOR TEXTURIZE'S INTERNAL USE ---
+    // These are loaded once within Texturize to ensure consistent pointers for its internal slice indexing.
+    cachedChesticleMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/chesticle.obj", cdnUrl))
+    cachedArmRightMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/arm_right.obj", cdnUrl))
+    cachedLegLeftMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/leg_left.obj", cdnUrl))
+    cachedLegRightMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/leg_right.obj", cdnUrl))
+    cachedTeeMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/tee.obj", cdnUrl))
+
+	objects = append(objects, &aeno.Object{
+		Mesh:  cachedChesticleMesh,
+		Color: aeno.HexColor(config.Colors["Torso"]),
+	})
+    fmt.Printf("Texturize: Added Chesticle Mesh Pointer: %p\n", cachedChesticleMesh)
+
+	objects = append(objects, &aeno.Object{
+		Mesh:  cachedArmRightMesh,
+		Color: aeno.HexColor(config.Colors["RightArm"]),
+	})
+    fmt.Printf("Texturize: Added Right Arm Mesh Pointer: %p\n", cachedArmRightMesh)
+
+	objects = append(objects,
+		&aeno.Object{
+			Mesh:  cachedLegLeftMesh,
+			Color: aeno.HexColor(config.Colors["LeftLeg"]),
+		},
+		&aeno.Object{
+			Mesh:  cachedLegRightMesh,
+			Color: aeno.HexColor(config.Colors["RightLeg"]),
+		},
+	)
+    fmt.Printf("Texturize: Added Left Leg Mesh Pointer: %p\n", cachedLegLeftMesh)
+    fmt.Printf("Texturize: Added Right Leg Mesh Pointer: %p\n", cachedLegRightMesh)
+
+    fmt.Println("Texturize: Initial body meshes created in order for slicing:")
+    for i, obj := range objects {
+        if obj.Mesh != nil {
+            fmt.Printf("  Texturize Index %d: Mesh Pointer %p\n", i, obj.Mesh)
+        }
+    }
+
+    fmt.Printf("Texturize: Processing Shirt. Shirt Item: %s\n", config.Items.Shirt.Item)
+	if config.Items.Shirt.Item != "none" {
+		shirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnUrl, config.Items.Shirt.Item)
+        fmt.Printf("Texturize: Loading shirt texture from URL: %s\n", shirtTextureURL)
+		shirtTexture := aeno.LoadTextureFromURL(shirtTextureURL)
+
+        fmt.Printf("Texturize: Shirt texture loaded. Applying to objects[0:2] (torso, right arm).\n")
+		for _, obj := range objects[0:2] {
+            fmt.Printf("  Texturize: Applying shirt texture to mesh %p\n", obj.Mesh)
+			obj.Texture = shirtTexture
+		}
+	}
+
+    fmt.Printf("Texturize: Processing Pants. Pants Item: %s\n", config.Items.Pants.Item)
+	if config.Items.Pants.Item != "none" {
+		pantsTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnUrl, config.Items.Pants.Item)
+        fmt.Printf("Texturize: Loading pants texture from URL: %s\n", pantsTextureURL)
+		pantsTexture := aeno.LoadTextureFromURL(pantsTextureURL)
+
+        fmt.Printf("Texturize: Pants texture loaded. Applying to objects[2:] (legs).\n")
+		for _, obj := range objects[2:] {
+            fmt.Printf("Texturize: Applying pants texture to mesh %p\n", obj.Mesh)
+			obj.Texture = pantsTexture
+		}
+	}
+
+    fmt.Printf("Texturize: Processing T-shirt. T-shirt Item: %s\n", config.Items.Tshirt.Item)
+	if config.Items.Tshirt.Item != "none" {
+		tshirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnUrl, config.Items.Tshirt.Item)
+        fmt.Printf("Texturize: Loading T-shirt texture from URL: %s\n", tshirtTextureURL)
+		tshirtTexture := aeno.LoadTextureFromURL(tshirtTextureURL)
+
+        fmt.Printf("Texturize: T-shirt texture loaded. Adding as new object.\n")
+		TshirtLoader := &aeno.Object{
+			Mesh:    cachedTeeMesh,
+			Color:   aeno.Transparent,
+			Texture: tshirtTexture,
+		}
+		objects = append(objects, TshirtLoader)
+        fmt.Printf("Texturize: T-shirt object added. Total objects: %d\n", len(objects))
+	}
+
+    fmt.Printf("Texturize: Processing Tool. Tool Item: %s\n", config.Items.Tool.Item)
+	armObjects := ToolClause(
+		config.Items.Tool,
+		config.Colors["LeftArm"],
+		config.Colors["RightArm"],
+		config.Items.Shirt.Item,
+	)
+	objects = append(objects, armObjects...)
+    fmt.Printf("Texturize: Tool/Arm objects added. Total objects: %d\n", len(objects))
+
+	return objects
 }
 
 func generatePreview(itemConfig ItemConfig) []*aeno.Object {
