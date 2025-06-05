@@ -819,13 +819,13 @@ func generatePreview(itemConfig ItemConfig) []*aeno.Object {
     cdnURL := env("CDN_URL")
 
     // These calls must be outside the switch to ensure consistent pointers.
-    cachedCraniumObjMesh := aenoLoadObjectFromURL(fmt.Sprintf("%s/assets/cranium.obj", cdnURL))
-    cachedChesticleObjMesh := aenoLoadObjectFromURL(fmt.Sprintf("%s/assets/chesticle.obj", cdnURL))
-    cachedArmRightObjMesh := aenoLoadObjectFromURL(fmt.Sprintf("%s/assets/arm_right.obj", cdnURL))
-    cachedArmLeftObjMesh := aenoLoadObjectFromURL(fmt.Sprintf("%s/assets/arm_left.obj", cdnURL))
-    cachedLegLeftObjMesh := aenoLoadObjectFromURL(fmt.Sprintf("%s/assets/leg_left.obj", cdnURL))
-    cachedLegRightObjMesh := aenoLoadObjectFromURL(fmt.Sprintf("%s/assets/leg_right.obj", cdnURL))
-    cachedTeeObjMesh := aenoLoadObjectFromURL(fmt.Sprintf("%s/assets/tee.obj", cdnURL))
+    cachedCraniumObjMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/cranium.obj", cdnURL))
+    cachedChesticleObjMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/chesticle.obj", cdnURL))
+    cachedArmRightObjMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/arm_right.obj", cdnURL))
+    cachedArmLeftObjMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/arm_left.obj", cdnURL))
+    cachedLegLeftObjMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/leg_left.obj", cdnURL))
+    cachedLegRightObjMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/leg_right.obj", cdnURL))
+    cachedTeeObjMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/tee.obj", cdnURL))
 
     
     // Since we're using `useDefault` here, it will be a plain colored body without specific apparel textures initially.
@@ -868,7 +868,7 @@ func generatePreview(itemConfig ItemConfig) []*aeno.Object {
         if faceTexture != nil { // Check if AddFace actually loaded a texture
             foundHeadMesh := false
             for _, obj := range allObjects {
-                if obj.Mesh != nil && (obj.Mesh == cachedHeadObjMesh || obj.Mesh == cachedCraniumObjMesh) {
+                if obj.Mesh != nil && (obj.Mesh == cachedCraniumObjMesh) {
                     obj.Texture = faceTexture
                     foundHeadMesh = true
                     fmt.Printf("generatePreview: Applied face texture to head/cranium mesh.\n")
@@ -889,7 +889,7 @@ func generatePreview(itemConfig ItemConfig) []*aeno.Object {
         if tshirtTexture != nil { 
             tshirtObj := &aeno.Object{
                 Mesh:    cachedTeeObjMesh, // Use the cached tee mesh
-                Color:   aenoTransparent,
+                Color:   aeno.Transparent,
                 Texture: tshirtTexture,
             }
             allObjects = append(allObjects, tshirtObj)
