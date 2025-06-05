@@ -112,7 +112,7 @@ var useDefault UserConfig = UserConfig{
 func env(key string) string {
 
     dir, Direrr := os.Getwd()
-    if err != nil {
+    if Direrr != nil {
         fmt.Errorf("Dir %v does not exists", Direrr)
     }
     err := godotenv.Load(path.Join(dir, ".env"))
