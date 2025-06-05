@@ -831,13 +831,19 @@ func generatePreview(itemConfig ItemConfig) []*aeno.Object {
 }
 
 func AddFace(faceHash string) aeno.Texture {
-        var face aeno.Texture
+    var face aeno.Texture
 
-        if faceHash != "none" {
-                face = aeno.LoadTextureFromURL(fmt.Sprintf("%s%s", env("CDN_URL"), "/uploads/"+faceHash+".png"))
-        } else {
-                face = aeno.LoadTextureFromURL(fmt.Sprintf("%s%s", env("CDN_URL"), "/assets/default.png"))
-        }
+    faceURL := ""
+    if faceHash != "none" {
+        faceURL = fmt.Sprintf("%s/uploads/%s.png", env("CDN_URL"), faceHash)
+    } else {
+        faceURL = fmt.Sprintf("%s/assets/default.png", env("CDN_URL"))
+    }
 
-        return face
+    fmt.Printf("AddFace: Loading face texture from URL: %s\n", faceURL)
+    face = aeno.LoadTextureFromURL(faceURL)
+
+    fmt.Printf("AddFace: Loaded texture for %s. (No nil check possible for value type)\n", faceURL)
+
+    return face
 }
