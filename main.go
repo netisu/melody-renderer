@@ -835,7 +835,7 @@ func generatePreview(itemConfig ItemConfig) []*aeno.Object {
     // This is needed for face application.
     allObjects = append(allObjects, &aeno.Object{
         Mesh:  cachedCraniumObjMesh,
-        Color: aenoHexColor(useDefault.Colors["Head"]), // Use default head color
+        Color: aeno.HexColor(useDefault.Colors["Head"]), // Use default head color
     })
 
     itemType := itemConfig.ItemType
