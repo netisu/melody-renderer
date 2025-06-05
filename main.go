@@ -653,7 +653,7 @@ func generateObjects(userConfig UserConfig, toolNeeded bool) []*aeno.Object {
 
         for _, obj := range allObjects {
             if obj.Mesh != nil && (obj.Mesh == aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/cranium.obj", cdnUrl))) {
-                obj.Texture = AddFace(userConfig.Items.Face)
+                obj.Texture = AddFace(userConfig.Items.Face.Item)
                 break
             }
         }
@@ -814,7 +814,7 @@ func generatePreview(itemConfig ItemConfig) []*aeno.Object {
         return allObjects
 }
 
-func AddFace(faceHash  string) aeno.Texture {
+func AddFace(faceHash string) aeno.Texture {
         var face aeno.Texture
 
         if faceHash != "none" {
