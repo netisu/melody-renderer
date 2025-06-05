@@ -1,7 +1,6 @@
 package main
 
 import (
-        "github.com/joho/godotenv"
         "github.com/netisu/aeno"
         "bytes"
         "encoding/json"
@@ -17,6 +16,8 @@ import (
         "path"
         "reflect"
         "time"
+        "github.com/joho/godotenv"
+
         
 )
 
