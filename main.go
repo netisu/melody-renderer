@@ -509,6 +509,7 @@ func renderHeadshot(e RenderEvent, w http.ResponseWriter) {
                 headshot_eye    = aeno.V(4, 7, 13)
                 headshot_center = aeno.V(-0.5, 6.8, 0)
                 headshot_up     = aeno.V(0, 4, 0)
+		headshot_fovy 	= 15.5
         )
 
         // Get UserJson from the URL query parameters
@@ -537,7 +538,7 @@ func renderHeadshot(e RenderEvent, w http.ResponseWriter) {
                 headshot_eye,
                 headshot_center,
                 headshot_up,
-                fovy,
+                headshot_fovy,
                 Dimentions,
                 scale,
                 light,
