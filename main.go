@@ -23,8 +23,8 @@ import (
 
 const (
         scale      = 1
-        fovy       = 15.5
-        near       = 1.1
+        fovy       = 22.5
+        near       = 1.0
         far        = 1000
         amb        = "d4d4d4" // d4d4d4
         lightcolor = "696969" // 696969
@@ -32,10 +32,10 @@ const (
 )
 
 var (
-        eye           = aeno.V(-0.72, 0.85, 2)
+        eye           = aeno.V(-0.75, 0.85, 2)
         center        = aeno.V(0, 0, 0)
         up            = aeno.V(0, 1.5, 0)
-        light         = aeno.V(0, 6, 4).Normalize()
+        light         = aeno.V(0, 6, -4).Normalize()
         rootDir       = "/var/www/renderer"
 )
 
