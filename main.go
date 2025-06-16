@@ -35,7 +35,7 @@ var (
         eye           = aeno.V(-0.75, 0.85, 2)
         center        = aeno.V(0, 0, 0)
         up            = aeno.V(0, 1.5, 0)
-        light         = aeno.V(0, 6, -4).Normalize()
+        light         = aeno.V(0, 6, -2).Normalize()
         rootDir       = "/var/www/renderer"
 )
 
