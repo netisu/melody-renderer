@@ -508,7 +508,7 @@ func renderHeadshot(e RenderEvent, w http.ResponseWriter) {
         var (
 		headshot_fovy 	= 15.5
 		headshot_near      = 0.1 // Much smaller near plane for close-ups
-    		headshot_far       = 100 // Can be smaller for headshots as well
+    		headshot_far       = 100.0 // Can be smaller for headshots as well
     		headshot_eye      = aeno.V(0, 7, 10) // Slightly adjust eye, less Z to be closer
     		headshot_center   = aeno.V(0, 6.8, 0) // Keep center for the head
     		headshot_up       = aeno.V(0, 1, 0) // Up vector for headshot (more standard)
