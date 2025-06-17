@@ -26,8 +26,8 @@ const (
         fovy       = 22.5
         near       = 1.0
         far        = 1000
-        amb        = "d4d4d4" // d4d4d4
-        lightcolor = "696969" // 696969
+        amb        = "b0b0b0" // d4d4d4
+        lightcolor = "808080" // 696969
         Dimentions = 512      // april fools (15)
 )
 
@@ -35,7 +35,7 @@ var (
         eye           = aeno.V(-0.75, 0.85, 2)
         center        = aeno.V(0, 0, 0)
         up            = aeno.V(0, 1.5, 0)
-        light         = aeno.V(0, 6, -2).Normalize()
+        light         = aeno.V(-1, 3, 1).Normalize()
         rootDir       = "/var/www/renderer"
 )
 
