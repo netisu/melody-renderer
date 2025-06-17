@@ -506,10 +506,12 @@ func renderHeadshot(e RenderEvent, w http.ResponseWriter) {
         // Delegate headshot rendering logic here
         fmt.Println("Rendering Headshot...")
         var (
-                headshot_eye    = aeno.V(4, 7, 13)
-                headshot_center = aeno.V(-0.5, 6.8, 0)
-                headshot_up     = aeno.V(0, 4, 0)
 		headshot_fovy 	= 15.5
+		headshot_near      = 0.1 // Much smaller near plane for close-ups
+    		headshot_far       = 100 // Can be smaller for headshots as well
+    		headshot_eye      = aeno.V(0, 7, 10) // Slightly adjust eye, less Z to be closer
+    		headshot_center   = aeno.V(0, 6.8, 0) // Keep center for the head
+    		headshot_up       = aeno.V(0, 1, 0) // Up vector for headshot (more standard)
         )
 
         // Get UserJson from the URL query parameters
@@ -544,8 +546,8 @@ func renderHeadshot(e RenderEvent, w http.ResponseWriter) {
                 light,
                 amb,
                 lightcolor,
-                near,
-                far,
+                headshot_near,
+                headshot_far,
         )
 
         fmt.Println("Uploading to the", env("S3_BUCKET"), "s3 bucket")
