@@ -15,6 +15,7 @@ import (
         "os"
         "path"
         "reflect"
+	"regexp"
         "time"
         "github.com/joho/godotenv"
 )
@@ -88,7 +89,7 @@ type ItemConfig struct {
 var useDefault UserConfig = UserConfig{
     Items: struct {
         Face   ItemData   `json:"face"`
-        Hats   []ItemData `json:"hats"`
+        Hats   HatsCollection `json:"hats"`
         Addon  ItemData   `json:"addon"`
         Tool   ItemData   `json:"tool"`
         Head   ItemData   `json:"head"`
