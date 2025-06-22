@@ -17,8 +17,6 @@ import (
         "reflect"
         "time"
         "github.com/joho/godotenv"
-
-        
 )
 
 const (
@@ -49,6 +47,7 @@ type EditStyle struct {
 	IsModel   bool   `json:"is_model"`
 	IsTexture bool   `json:"is_texture"`
 }
+
 type RenderEvent struct {
         RenderType string     `json:"RenderType"`
         Hash       string     `json:"Hash"`
@@ -61,10 +60,15 @@ type ItemEvent struct {
     RenderJson ItemConfig `json:"RenderJson"` // Use interface{} for flexibility
 }
 
+type HatsCollection map[string]ItemRenderData
+
+// hatKeyPattern is a regular expression to match keys like "hat_1", "hat_123", etc.
+var hatKeyPattern = regexp.MustCompile(`^hat_\d+$`)
+
 type UserConfig struct {
         Items struct {
                 Face   ItemData   `json:"face"`
-                Hats   []ItemData `json:"hats"`
+        	Hats   HatsCollection    `json:"hats"`
                 Addon  ItemData   `json:"addon"`
                 Tool   ItemData   `json:"tool"`
                 Head   ItemData   `json:"head"`
@@ -93,7 +97,14 @@ var useDefault UserConfig = UserConfig{
         Tshirt ItemData   `json:"tshirt"`
     }{
         Face:   ItemData{Item: "none"},
-        Hats:   []ItemData{{Item: "none"}, {Item: "none"}, {Item: "none"}, {Item: "none"}, {Item: "none"}, {Item: "none"}}, // Initialize all 6 hat slots
+        Hats: HatsCollection{
+            "hat_1": {Item: "none"},
+            "hat_2": {Item: "none"},
+            "hat_3": {Item: "none"},
+            "hat_4": {Item: "none"},
+            "hat_5": {Item: "none"},
+            "hat_6": {Item: "none"},
+        },
         Addon:  ItemData{Item: "none"},
         Head:   ItemData{Item: "none"},
         Tool:   ItemData{Item: "none"},
@@ -705,14 +716,20 @@ func generateObjects(userConfig UserConfig, toolNeeded bool) []*aeno.Object { //
     }
 
     fmt.Printf("generateObjects: Processing Hats. Count: %d\n", len(userConfig.Items.Hats))
-    for _, hatItemData := range userConfig.Items.Hats {
-        fmt.Printf("  Hat Item: %s\n", hatItemData.Item)
-        if obj := RenderItem(hatItemData); obj != nil {
-            allObjects = append(allObjects, obj)
-            fmt.Printf("Hat object added. Total objects: %d\n", len(allObjects))
+    for hatKey, hatItemData := range userConfig.Items.Hats {
+        if !hatKeyPattern.MatchString(hatKey) {
+            log.Printf("Warning: Invalid hat key format: '%s'. Skipping hat.\n", hatKey)
+            continue
+        }
+
+        fmt.Printf("  Hat Key: %s, Item: %s\n", hatKey, hatItemData.Item)
+        if hatItemData.Item != "none" {
+            if obj := RenderItem(hatItemData); obj != nil {
+                allObjects = append(allObjects, obj)
+                fmt.Printf("Hat object for %s added. Total objects: %d\n", hatKey, len(allObjects))
+            }
         }
     }
-
     fmt.Printf("generateObjects: Finished. Final object count: %d\n", len(allObjects))
     return allObjects
 }
