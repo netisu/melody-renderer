@@ -61,7 +61,7 @@ type ItemEvent struct {
     RenderJson ItemConfig `json:"RenderJson"` // Use interface{} for flexibility
 }
 
-type HatsCollection map[string]ItemRenderData
+type HatsCollection map[string]ItemData
 
 // hatKeyPattern is a regular expression to match keys like "hat_1", "hat_123", etc.
 var hatKeyPattern = regexp.MustCompile(`^hat_\d+$`)
