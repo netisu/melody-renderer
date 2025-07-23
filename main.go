@@ -622,8 +622,9 @@ func RenderItem(itemData ItemData) *aeno.Object {
 		return nil // No item to render for this slot
 	}
 
-	meshURL := fmt.Sprintf("%s/uploads/%s.obj", env("CDN_URL"), itemData.Item)
-	textureURL := fmt.Sprintf("%s/uploads/%s.png", env("CDN_URL"), itemData.Item)
+	cdnURL := env("CDN_URL")
+	meshURL := fmt.Sprintf("%s/uploads/%s.obj", cdnURL, itemData.Item)
+	textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, itemData.Item)
 
 	if itemData.EditStyle != nil {
 		if itemData.EditStyle.IsModel {
@@ -636,10 +637,20 @@ func RenderItem(itemData ItemData) *aeno.Object {
 		}
 	}
 
+    var texture aeno.Texture
+    resp, err := http.Head(textureURL)
+    if err == nil && resp.StatusCode == http.StatusOK {
+        texture = aeno.LoadTextureFromURL(textureURL)
+    } else {
+        fmt.Printf("Info: No texture found for item at %s. Rendering with color only.\n", textureURL)
+    }
+
+
 	return &aeno.Object{
 		Mesh:    aeno.LoadObjectFromURL(meshURL),
 		Color:   aeno.Transparent,
-		Texture: aeno.LoadTextureFromURL(textureURL),
+		Texture: texture,
+		Matrix: aeno.Identity(),
 	}
 }
 
