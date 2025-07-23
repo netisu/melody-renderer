@@ -784,7 +784,6 @@ func Texturize(config UserConfig) []*aeno.Object {
 
 	// --- CACHED MESH REFERENCES FOR TEXTURIZE'S INTERNAL USE ---
 	// These are loaded once within Texturize to ensure consistent pointers for its internal slice indexing.
-	// --- DYNAMICALLY LOAD MESHES ---
 	torsoPath := getMeshPath(config.BodyParts.Torso, "chesticle")
 	rightArmPath := getMeshPath(config.BodyParts.RightArm, "arm_right")
 	leftLegPath := getMeshPath(config.BodyParts.LeftLeg, "leg_left")
@@ -795,17 +794,12 @@ func Texturize(config UserConfig) []*aeno.Object {
 	cachedLegLeftMesh := aeno.LoadObjectFromURL(leftLegPath)
 	cachedLegRightMesh := aeno.LoadObjectFromURL(rightLegPath)
 	cachedTeeMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/tee.obj", cdnUrl))
-	// --- END OF CHANGE ---
 
 	objects = append(objects, &aeno.Object{
 		Mesh:  cachedChesticleMesh,
 		Color: aeno.HexColor(config.Colors["Torso"]),
 	})
 
-	objects = append(objects, &aeno.Object{
-		Mesh:  cachedChesticleMesh,
-		Color: aeno.HexColor(config.Colors["Torso"]),
-	})
 	fmt.Printf("Texturize: Added Chesticle Mesh Pointer: %p\n", cachedChesticleMesh)
 
 	objects = append(objects, &aeno.Object{
