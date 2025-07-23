@@ -2,7 +2,6 @@ package main
 
 import (
     "math"
-    "github.com/go-gl/mathgl/mgl64"
 	"bytes"
 	"encoding/json"
 	"fmt"
