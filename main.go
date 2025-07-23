@@ -1,7 +1,6 @@
 package main
 
 import (
-    "math"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -13,6 +12,7 @@ import (
 	"github.com/netisu/aeno"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"path"
@@ -252,7 +252,7 @@ func renderUser(e RenderEvent, w http.ResponseWriter) {
 	start := time.Now()
 	fmt.Println("Drawing Objects...")
 	// Generate the list of objects using the function
-	objects := generateObjects(userJson, true)
+	objects := generateObjects(userJson)
 	fmt.Println("Exporting to", env("TEMP_DIR"), "thumbnails")
 	outputFile := path.Join("thumbnails", e.Hash+".png")
 	outputPath := path.Join(env("TEMP_DIR"), e.Hash+".png") // Renamed 'path' to 'outputPath' to avoid shadowing
@@ -557,7 +557,7 @@ func renderHeadshot(e RenderEvent, w http.ResponseWriter) {
 	start := time.Now()
 	fmt.Println("Drawing Objects...")
 	// Generate the list of objects using the function
-	objects := generateObjects(userJson, false)
+	objects := generateObjects(userJson)
 
 	fmt.Println("Exporting to", env("TEMP_DIR"), "thumbnails")
 	outputFile := path.Join("thumbnails", e.Hash+"_headshot.png")
@@ -661,7 +661,7 @@ func ToolClause(toolData ItemData, armColor string, shirtTextureHash string, lef
 	// Load the specified left arm mesh once
 	leftArmPath := getMeshPath(leftArmMeshName, "arm_left")
 	armMesh := aeno.LoadObjectFromURL(leftArmPath)
-	
+
 	// Prepare the arm object
 	armObj := &aeno.Object{
 		Mesh:  armMesh,
@@ -681,24 +681,23 @@ func ToolClause(toolData ItemData, armColor string, shirtTextureHash string, lef
 
 		// Define the rotation matrix for the tool-holding pose
 		rotationMatrix := aeno.Rotate(aeno.V(1, 0, 0), math.Pi/2.0)
-		
+
 		// Apply the transformation to our arm object
-		armObj.Matrix = rotationMatrix 
+		armObj.Matrix = rotationMatrix
 
-
-		
 		fmt.Printf("ToolClause: Added rotated left arm for tool pose.\n")
 
 	} else {
 		fmt.Printf("ToolClause: No tool, added default left arm.\n")
 	}
 
-    // Add the (potentially rotated) arm object to the scene
+	// Add the (potentially rotated) arm object to the scene
 	objects = append(objects, armObj)
 
 	return objects
 }
-func generateObjects(userConfig UserConfig, toolNeeded bool) []*aeno.Object { // toolNeeded might be unused now
+
+func generateObjects(userConfig UserConfig) []*aeno.Object {
 	fmt.Printf("generateObjects: Starting. UserConfig: %+v\n", userConfig)
 
 	var allObjects []*aeno.Object
@@ -872,11 +871,11 @@ func Texturize(config UserConfig) []*aeno.Object {
 
 	fmt.Printf("Texturize: Processing Tool. Tool Item: %s\n", config.Items.Tool.Item)
 	armObjects := ToolClause(
-	config.Items.Tool,
-	config.Colors["LeftArm"],
-	config.Items.Shirt.Item,
-	config.BodyParts.LeftArm,
-)
+		config.Items.Tool,
+		config.Colors["LeftArm"],
+		config.Items.Shirt.Item,
+		config.BodyParts.LeftArm,
+	)
 	objects = append(objects, armObjects...)
 	fmt.Printf("Texturize: Tool/Arm objects added. Total objects: %d\n", len(objects))
 
@@ -886,149 +885,36 @@ func Texturize(config UserConfig) []*aeno.Object {
 // --- Adapted generatePreview Function ---
 func generatePreview(itemConfig ItemConfig) []*aeno.Object {
 	fmt.Printf("generatePreview: Starting for ItemType: %s, Item: %+v\n", itemConfig.ItemType, itemConfig.Item)
-	var allObjects []*aeno.Object
-	cdnURL := env("CDN_URL")
 
-	// These calls must be outside the switch to ensure consistent pointers.
-	cachedCraniumObjMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/cranium.obj", cdnURL))
-	cachedChesticleObjMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/chesticle.obj", cdnURL))
-	cachedArmRightObjMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/arm_right.obj", cdnURL))
-	cachedArmLeftObjMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/arm_left.obj", cdnURL))
-	cachedLegLeftObjMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/leg_left.obj", cdnURL))
-	cachedLegRightObjMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/leg_right.obj", cdnURL))
-	cachedTeeObjMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/tee.obj", cdnURL))
-
-	// Since we're using `useDefault` here, it will be a plain colored body without specific apparel textures initially.
-	coloredBodyParts := Texturize(useDefault)
-	allObjects = append(allObjects, coloredBodyParts...)
-
-	// This is needed for face application.
-	allObjects = append(allObjects, &aeno.Object{
-		Mesh:  cachedCraniumObjMesh,
-		Color: aeno.HexColor(useDefault.Colors["Head"]), // Use default head color
-	})
+	previewConfig := useDefault
 
 	itemType := itemConfig.ItemType
 	itemData := itemConfig.Item
 
-	// --- Handle different item types for preview ---
 	switch itemType {
-	case "tool":
-		// Fixed ToolClause parameters: toolData, leftArmColor, rightArmColor, shirtTextureHash
-		armObjects := ToolClause(
-			itemData,
-			useDefault.Colors["LeftArm"],  // Default left arm color
-			useDefault.Colors["RightArm"], // Default right arm color
-			"none",                        // Pass "none" for shirt texture if we want a bare arm for tool preview
-		)
-		allObjects = append(allObjects, armObjects...)
-		fmt.Printf("generatePreview: Added tool and arm objects for '%s'.\n", itemData.Item)
-
-	case "head":
-		// If 'head' is a custom model, render it.
-		// This will likely replace or sit on top of the default cranium.obj
-		if obj := RenderItem(itemData); obj != nil {
-			allObjects = append(allObjects, obj)
-			fmt.Printf("generatePreview: Added custom head object for '%s'.\n", itemData.Item)
-		}
-
 	case "face":
-		// Find the cranium or generic head mesh in the existing objects and apply the face texture.
-		faceTexture := AddFace(itemData.Item) // AddFace handles its own nil checks
-		if faceTexture != nil {               // Check if AddFace actually loaded a texture
-			foundHeadMesh := false
-			for _, obj := range allObjects {
-				if obj.Mesh != nil && (obj.Mesh == cachedCraniumObjMesh) {
-					obj.Texture = faceTexture
-					foundHeadMesh = true
-					fmt.Printf("generatePreview: Applied face texture to head/cranium mesh.\n")
-					break
-				}
-			}
-			if !foundHeadMesh {
-				fmt.Printf("generatePreview: WARNING: No head/cranium mesh found to apply face texture for '%s'.\n", itemData.Item)
-			}
-		} else {
-			fmt.Printf("generatePreview: WARNING: Face texture for '%s' failed to load. Not applying.\n", itemData.Item)
-		}
-
-	case "tshirt":
-		// T-shirt is an overlay mesh with its own texture.
-		// It's not a texture applied to the base body, but a separate "tee" mesh.
-		tshirtTexture := aeno.LoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", cdnURL, itemData.Item))
-		if tshirtTexture != nil {
-			tshirtObj := &aeno.Object{
-				Mesh:    cachedTeeObjMesh, // Use the cached tee mesh
-				Color:   aeno.Transparent,
-				Texture: tshirtTexture,
-			}
-			allObjects = append(allObjects, tshirtObj)
-			fmt.Printf("generatePreview: Added T-shirt object for '%s'.\n", itemData.Item)
-		} else {
-			fmt.Printf("generatePreview: WARNING! T-shirt texture for '%s' failed to load. Not adding.\n", itemData.Item)
-		}
-
-	case "shirt":
-		shirtTexture := aeno.LoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", cdnURL, itemData.Item))
-		if shirtTexture != nil {
-			// Apply to torso, right arm, and left arm (if exists)
-			appliedCount := 0
-			for _, obj := range allObjects {
-				if obj.Mesh != nil && (obj.Mesh == cachedChesticleObjMesh ||
-					obj.Mesh == cachedArmRightObjMesh ||
-					obj.Mesh == cachedArmLeftObjMesh) { // Include left arm
-					obj.Texture = shirtTexture
-					appliedCount++
-				}
-			}
-			fmt.Printf("generatePreview: Applied shirt texture for '%s' to %d body part(s).\n", itemData.Item, appliedCount)
-		} else {
-			fmt.Printf("generatePreview: WARNING! Shirt texture for '%s' failed to load. Not applying.\n", itemData.Item)
-		}
-
-	case "pants":
-		pantsTexture := aeno.LoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", cdnURL, itemData.Item))
-		if pantsTexture != nil {
-			// Apply to left and right legs
-			appliedCount := 0
-			for _, obj := range allObjects {
-				if obj.Mesh != nil && (obj.Mesh == cachedLegLeftObjMesh ||
-					obj.Mesh == cachedLegRightObjMesh) {
-					obj.Texture = pantsTexture
-					appliedCount++
-				}
-			}
-			fmt.Printf("generatePreview: Applied pants texture for '%s' to %d leg(s).\n", itemData.Item, appliedCount)
-		} else {
-			fmt.Printf("generatePreview: WARNING! Pants texture for '%s' failed to load. Not applying.\n", itemData.Item)
-		}
-
+		previewConfig.Items.Face = itemData
 	case "hat":
-		// Hats are usually distinct models.
-		if obj := RenderItem(itemData); obj != nil {
-			allObjects = append(allObjects, obj)
-			fmt.Printf("generatePreview: Added hat object for '%s'.\n", itemData.Item)
-		}
-
+		previewConfig.Items.Hats = make(HatsCollection)
+		previewConfig.Items.Hats["hat_1"] = itemData
 	case "addon":
-		// Addons are also distinct models.
-		if obj := RenderItem(itemData); obj != nil {
-			allObjects = append(allObjects, obj)
-			fmt.Printf("generatePreview: Added addon object for '%s'.\n", itemData.Item)
+		previewConfig.Items.Addon = itemData
+	case "tool":
+		previewConfig.Items.Tool = itemData
+	case "pants":
+		previewConfig.Items.Pants = itemData
+	case "shirt":
+		previewConfig.Items.Shirt = itemData
+	case "tshirt":
+		previewConfig.Items.Tshirt = itemData
+	case "head":
+		if itemData.Item != "none" {
+			previewConfig.BodyParts.Head = itemData.Item
 		}
-
 	default:
-		// This case is a fallback for any item type not explicitly handled.
-		// It simply tries to render it as a generic item.
-		fmt.Printf("generatePreview: Unhandled item type '%s'. Attempting generic RenderItem.\n", itemType)
-		if obj := RenderItem(itemData); obj != nil {
-			allObjects = append(allObjects, obj)
-			fmt.Printf("generatePreview: Added generic object for '%s'.\n", itemData.Item)
-		}
+		fmt.Printf("generatePreview: Unhandled item type '%s'. Showing default avatar.\n", itemType)
 	}
-
-	fmt.Printf("generatePreview: Finished. Final object count: %d\n", len(allObjects))
-	return allObjects
+	return generateObjects(previewConfig)
 }
 
 func AddFace(faceHash string) aeno.Texture {
