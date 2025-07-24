@@ -637,20 +637,19 @@ func RenderItem(itemData ItemData) *aeno.Object {
 		}
 	}
 
-    var texture aeno.Texture
-    resp, err := http.Head(textureURL)
-    if err == nil && resp.StatusCode == http.StatusOK {
-        texture = aeno.LoadTextureFromURL(textureURL)
-    } else {
-        fmt.Printf("Info: No texture found for item at %s. Rendering with color only.\n", textureURL)
-    }
-
+	var texture aeno.Texture
+	resp, err := http.Head(textureURL)
+	if err == nil && resp.StatusCode == http.StatusOK {
+		texture = aeno.LoadTextureFromURL(textureURL)
+	} else {
+		fmt.Printf("Info: No texture found for item at %s. Rendering with color only.\n", textureURL)
+	}
 
 	return &aeno.Object{
 		Mesh:    aeno.LoadObjectFromURL(meshURL),
 		Color:   aeno.Transparent,
 		Texture: texture,
-		Matrix: aeno.Identity(),
+		Matrix:  aeno.Identity(),
 	}
 }
 
@@ -675,8 +674,9 @@ func ToolClause(toolData ItemData, armColor string, shirtTextureHash string, lef
 
 	// Prepare the arm object
 	armObj := &aeno.Object{
-		Mesh:  armMesh,
-		Color: aeno.HexColor(armColor),
+		Mesh:   armMesh,
+		Color:  aeno.HexColor(armColor),
+		Matrix: aeno.Identity(),
 	}
 
 	// Load the shirt texture if it exists
@@ -734,8 +734,9 @@ func generateObjects(userConfig UserConfig) []*aeno.Object {
 	allObjects = append(allObjects, bodyAndApparelObjects...)
 
 	allObjects = append(allObjects, &aeno.Object{
-		Mesh:  cachedCraniumMesh,
-		Color: aeno.HexColor(userConfig.Colors["Head"]),
+		Mesh:   cachedCraniumMesh,
+		Color:  aeno.HexColor(userConfig.Colors["Head"]),
+		Matrix: aeno.Identity(),
 	})
 
 	fmt.Printf("generateObjects: Cranium mesh added. Total objects: %d\n", len(allObjects))
@@ -806,26 +807,30 @@ func Texturize(config UserConfig) []*aeno.Object {
 	cachedTeeMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/tee.obj", cdnUrl))
 
 	objects = append(objects, &aeno.Object{
-		Mesh:  cachedChesticleMesh,
-		Color: aeno.HexColor(config.Colors["Torso"]),
+		Mesh:   cachedChesticleMesh,
+		Color:  aeno.HexColor(config.Colors["Torso"]),
+		Matrix: aeno.Identity(),
 	})
 
 	fmt.Printf("Texturize: Added Chesticle Mesh Pointer: %p\n", cachedChesticleMesh)
 
 	objects = append(objects, &aeno.Object{
-		Mesh:  cachedArmRightMesh,
-		Color: aeno.HexColor(config.Colors["RightArm"]),
+		Mesh:   cachedArmRightMesh,
+		Color:  aeno.HexColor(config.Colors["RightArm"]),
+		Matrix: aeno.Identity(),
 	})
 	fmt.Printf("Texturize: Added Right Arm Mesh Pointer: %p\n", cachedArmRightMesh)
 
 	objects = append(objects,
 		&aeno.Object{
-			Mesh:  cachedLegLeftMesh,
-			Color: aeno.HexColor(config.Colors["LeftLeg"]),
+			Mesh:   cachedLegLeftMesh,
+			Color:  aeno.HexColor(config.Colors["LeftLeg"]),
+			Matrix: aeno.Identity(),
 		},
 		&aeno.Object{
-			Mesh:  cachedLegRightMesh,
-			Color: aeno.HexColor(config.Colors["RightLeg"]),
+			Mesh:   cachedLegRightMesh,
+			Color:  aeno.HexColor(config.Colors["RightLeg"]),
+			Matrix: aeno.Identity(),
 		},
 	)
 	fmt.Printf("Texturize: Added Left Leg Mesh Pointer: %p\n", cachedLegLeftMesh)
@@ -875,6 +880,7 @@ func Texturize(config UserConfig) []*aeno.Object {
 			Mesh:    cachedTeeMesh,
 			Color:   aeno.Transparent,
 			Texture: tshirtTexture,
+			Matrix:  aeno.Identity(),
 		}
 		objects = append(objects, TshirtLoader)
 		fmt.Printf("Texturize: T-shirt object added. Total objects: %d\n", len(objects))
