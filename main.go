@@ -691,10 +691,14 @@ func ToolClause(toolData ItemData, armColor string, shirtTextureHash string, lef
 		}
 
 		// Define the rotation matrix for the tool-holding pose
-		rotationMatrix := aeno.Rotate(aeno.V(1, 0, 0), math.Pi/2.0)
+		rotation  := aeno.Rotate(aeno.V(1, 0, 0), math.Pi/2.0)
+
+    	translation := aeno.Translate(aeno.V(0, 0.5, 0))
+
+   		finalMatrix := translation.Mul(rotation)
 
 		// Apply the transformation to our arm object
-		armObj.Matrix = rotationMatrix
+    	armObj.Matrix = finalMatrix
 
 		fmt.Printf("ToolClause: Added rotated left arm for tool pose.\n")
 
