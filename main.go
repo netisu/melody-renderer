@@ -653,63 +653,32 @@ func RenderItem(itemData ItemData) *aeno.Object {
 	}
 }
 
-func ToolClause(toolData ItemData, armColor string, shirtTextureHash string, leftArmMeshName string) []*aeno.Object {
-	objects := []*aeno.Object{}
-	cdnUrl := env("CDN_URL")
-
-	// Helper to get the correct mesh path
-	getMeshPath := func(partName, defaultName string) string {
-		if partName == "" {
-			partName = defaultName
-		}
-		if partName == "arm_left" { // Check against the default name
-			return fmt.Sprintf("%s/assets/%s.obj", cdnUrl, partName)
-		}
-		return fmt.Sprintf("%s/uploads/%s.obj", cdnUrl, partName)
-	}
-
-	// Load the specified left arm mesh once
+func ToolClause(toolData ItemData, armColor string, shirtTexture aeno.Texture, leftArmMeshName string) *aeno.Object {
 	leftArmPath := getMeshPath(leftArmMeshName, "arm_left")
-	armMesh := aeno.LoadObjectFromURL(leftArmPath)
+	originalArmMesh := aeno.LoadObjectFromURL(leftArmPath)
 
-	// Prepare the arm object
-	armObj := &aeno.Object{
-		Mesh:   armMesh,
-		Color:  aeno.HexColor(armColor),
-		Matrix: aeno.Identity(),
-	}
+	finalMesh := originalArmMesh
 
-	// Load the shirt texture if it exists
-	if shirtTextureHash != "none" {
-		armObj.Texture = aeno.LoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", cdnUrl, shirtTextureHash))
-	}
-
+	// If a tool is equipped, create a new, posed mesh.
 	if toolData.Item != "none" {
+		rotation := aeno.Rotate(aeno.V(1, 0, 0), math.Pi/2.0)
+		translation := aeno.Translate(aeno.V(0, 0.5, 0))
+		transformMatrix := translation.Mul(rotation)
 
-		if toolMesh := RenderItem(toolData); toolMesh != nil {
-			objects = append(objects, toolMesh)
-		}
-
-		// Define the rotation matrix for the tool-holding pose
-		rotation  := aeno.Rotate(aeno.V(1, 0, 0), math.Pi/2.0)
-
-    	translation := aeno.Translate(aeno.V(0, 0.5, 0))
-
-   		finalMatrix := translation.Mul(rotation)
-
-		// Apply the transformation to our arm object
-    	armObj.Matrix = finalMatrix
-
-		fmt.Printf("ToolClause: Added rotated left arm for tool pose.\n")
-
-	} else {
-		fmt.Printf("ToolClause: No tool, added default left arm.\n")
+		// Bake the transformation into a new mesh.
+		finalMesh = ApplyMatrixToMesh(originalArmMesh, transformMatrix)
 	}
 
-	// Add the (potentially rotated) arm object to the scene
-	objects = append(objects, armObj)
+	// Create the final object. Its matrix is always Identity because
+	// the transformation is already baked into the vertices.
+	armObject := &aeno.Object{
+		Mesh:    finalMesh,
+		Color:   aeno.HexColor(armColor),
+		Texture: shirtTexture, // Pass texture to apply to the arm
+		Matrix:  aeno.Identity(),
+	}
 
-	return objects
+	return armObject
 }
 
 func generateObjects(userConfig UserConfig) []*aeno.Object {
@@ -781,13 +750,9 @@ func generateObjects(userConfig UserConfig) []*aeno.Object {
 	fmt.Printf("generateObjects: Finished. Final object count: %d\n", len(allObjects))
 	return allObjects
 }
-
-func Texturize(config UserConfig) []*aeno.Object {
-	objects := []*aeno.Object{}
-	cdnUrl := env("CDN_URL")
-
-	// Helper function to build the correct path
-	getMeshPath := func(partName, defaultName string) string {
+// Helper function to build the correct path
+func getMeshPath(partName, defaultName string) string {
+		cdnUrl := env("CDN_URL")
 		if partName == "" {
 			partName = defaultName
 		}
@@ -795,8 +760,10 @@ func Texturize(config UserConfig) []*aeno.Object {
 			return fmt.Sprintf("%s/assets/%s.obj", cdnUrl, partName)
 		}
 		return fmt.Sprintf("%s/uploads/%s.obj", cdnUrl, partName)
-	}
-
+}
+func Texturize(config UserConfig) []*aeno.Object {
+	objects := []*aeno.Object{}
+	cdnUrl := env("CDN_URL")
 	// --- CACHED MESH REFERENCES FOR TEXTURIZE'S INTERNAL USE ---
 	// These are loaded once within Texturize to ensure consistent pointers for its internal slice indexing.
 	torsoPath := getMeshPath(config.BodyParts.Torso, "chesticle")
@@ -848,16 +815,14 @@ func Texturize(config UserConfig) []*aeno.Object {
 	}
 
 	fmt.Printf("Texturize: Processing Shirt. Shirt Item: %s\n", config.Items.Shirt.Item)
+	var shirtTexture aeno.Texture
 	if config.Items.Shirt.Item != "none" {
 		shirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnUrl, config.Items.Shirt.Item)
-		fmt.Printf("Texturize: Loading shirt texture from URL: %s\n", shirtTextureURL)
-		shirtTexture := aeno.LoadTextureFromURL(shirtTextureURL)
+		shirtTexture = aeno.LoadTextureFromURL(shirtTextureURL)
 
-		fmt.Printf("Texturize: Shirt texture loaded. Applying to objects[0:2] (torso, right arm).\n")
-		for _, obj := range objects[0:2] {
-			fmt.Printf("  Texturize: Applying shirt texture to mesh %p\n", obj.Mesh)
-			obj.Texture = shirtTexture
-		}
+		// Apply texture to torso and right arm
+		objects[0].Texture = shirtTexture
+		objects[1].Texture = shirtTexture
 	}
 
 	fmt.Printf("Texturize: Processing Pants. Pants Item: %s\n", config.Items.Pants.Item)
@@ -890,15 +855,16 @@ func Texturize(config UserConfig) []*aeno.Object {
 		fmt.Printf("Texturize: T-shirt object added. Total objects: %d\n", len(objects))
 	}
 
+	leftArmObject := ToolClause(config.Items.Tool, config.Colors["LeftArm"], shirtTexture, config.BodyParts.LeftArm)
+	objects = append(objects, leftArmObject)
+
 	fmt.Printf("Texturize: Processing Tool. Tool Item: %s\n", config.Items.Tool.Item)
-	armObjects := ToolClause(
-		config.Items.Tool,
-		config.Colors["LeftArm"],
-		config.Items.Shirt.Item,
-		config.BodyParts.LeftArm,
-	)
-	objects = append(objects, armObjects...)
-	fmt.Printf("Texturize: Tool/Arm objects added. Total objects: %d\n", len(objects))
+	 if config.Items.Tool.Item != "none" {
+        if toolObj := RenderItem(config.Items.Tool); toolObj != nil {
+            objects = append(objects, toolObj)
+        }
+    }
+	fmt.Printf("Texturize: Tool object added. Total objects: %d\n", len(objects))
 
 	return objects
 }
@@ -954,4 +920,20 @@ func AddFace(faceHash string) aeno.Texture {
 	fmt.Printf("AddFace: Loaded texture for %s. (No nil check possible for value type)\n", faceURL)
 
 	return face
+}
+func ApplyMatrixToMesh(mesh *aeno.Mesh, matrix aeno.Matrix) *aeno.Mesh {
+	newTriangles := make([]*aeno.Triangle, len(mesh.Triangles))
+	for i, t := range mesh.Triangles {
+		// Create a copy of the triangle struct
+		newT := *t
+		newTriangles[i] = &newT
+	}
+
+	newMesh := aeno.NewTriangleMesh(newTriangles)
+
+	for _, t := range newMesh.Triangles {
+		t.Transform(matrix)
+	}
+
+	return newMesh
 }
