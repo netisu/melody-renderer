@@ -809,6 +809,11 @@ func Texturize(config UserConfig) []*aeno.Object {
 		Mesh:  cachedChesticleMesh,
 		Color: aeno.HexColor(config.Colors["Torso"]),
 	})
+	
+	 // --- TEMPORARY TEST ---
+    torsoObject := objects[0] // Get the torso we just added
+    torsoObject.Matrix = aeno.Rotate(aeno.V(0, 1, 0), math.Pi/4.0) // Rotate it 45 degrees
+    // --- End of temporary test ---
 
 	fmt.Printf("Texturize: Added Chesticle Mesh Pointer: %p\n", cachedChesticleMesh)
 
