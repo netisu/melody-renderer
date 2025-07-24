@@ -872,7 +872,6 @@ func Texturize(config UserConfig) []*aeno.Object {
 		config.Items.Tool,
 		config.Colors["LeftArm"],
 		config.Items.Shirt.Item,
-		config.BodyParts.LeftArm,
 	)
 	objects = append(objects, armObjects...)
 	fmt.Printf("Texturize: Tool/Arm objects added. Total objects: %d\n", len(objects))
