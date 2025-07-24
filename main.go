@@ -653,43 +653,34 @@ func RenderItem(itemData ItemData) *aeno.Object {
 	}
 }
 
-func ToolClause(toolData ItemData, armColor string, shirtTexture aeno.Texture, leftArmMeshName string) []*aeno.Object {
+func ToolClause(toolData ItemData, armColor string, shirtTexture aeno.Texture, leftArmMeshName string) *aeno.Object {
 	leftArmPath := getMeshPath(leftArmMeshName, "arm_left")
 	originalArmMesh := aeno.LoadObjectFromURL(leftArmPath)
 
+	finalMesh := originalArmMesh
+
+	// If a tool is equipped, create a new, posed mesh.
 	if toolData.Item != "none" {
 		rotation := aeno.Rotate(aeno.V(1, 0, 0), math.Pi/2.0)
-		translation := aeno.Translate(aeno.V(0, 0.5, 0))
+		translation := aeno.Translate(aeno.V(0, 0.85, 0))
 		transformMatrix := translation.Mul(rotation)
 
-		posedArmMesh := ApplyMatrixToMesh(originalArmMesh, transformMatrix)
-		armObject := &aeno.Object{
-			Mesh:    posedArmMesh,
-			Color:   aeno.HexColor(armColor),
-			Texture: shirtTexture,
-			Matrix:  aeno.Identity(),
-		}
-
-		// Create the tool object and bake the *same* transformation into its mesh.
-		toolObject := RenderItem(toolData)
-		if toolObject != nil {
-			toolObject.Mesh = ApplyMatrixToMesh(toolObject.Mesh, transformMatrix)
-			return []*aeno.Object{armObject, toolObject}
-		}
-
-		// If tool fails to load, just return the posed arm.
-		return []*aeno.Object{armObject}
+		// Bake the transformation into a new mesh.
+		finalMesh = ApplyMatrixToMesh(originalArmMesh, transformMatrix)
 	}
 
-	// If no tool is equipped, create and return the standard, un-posed arm.
+	// Create the final object. Its matrix is always Identity because
+	// the transformation is already baked into the vertices.
 	armObject := &aeno.Object{
-		Mesh:    originalArmMesh,
+		Mesh:    finalMesh,
 		Color:   aeno.HexColor(armColor),
-		Texture: shirtTexture,
+		Texture: shirtTexture, // Pass texture to apply to the arm
 		Matrix:  aeno.Identity(),
 	}
-	return []*aeno.Object{armObject}
+
+	return armObject
 }
+
 func generateObjects(userConfig UserConfig) []*aeno.Object {
 	fmt.Printf("generateObjects: Starting. UserConfig: %+v\n", userConfig)
 
@@ -863,12 +854,17 @@ func Texturize(config UserConfig) []*aeno.Object {
 		objects = append(objects, TshirtLoader)
 		fmt.Printf("Texturize: T-shirt object added. Total objects: %d\n", len(objects))
 	}
-	fmt.Printf("Texturize: Processing Tool and arm object. Tool Item: %s\n", config.Items.Tool.Item)
 
-	armAndToolObjects := ToolClause(config.Items.Tool, config.Colors["LeftArm"], shirtTexture, config.BodyParts.LeftArm)
-	objects = append(objects, armAndToolObjects...)
+	leftArmObject := ToolClause(config.Items.Tool, config.Colors["LeftArm"], shirtTexture, config.BodyParts.LeftArm)
+	objects = append(objects, leftArmObject)
 
-	fmt.Printf("Texturize: Tool and arm object added. Total objects: %d\n", len(objects))
+	fmt.Printf("Texturize: Processing Tool. Tool Item: %s\n", config.Items.Tool.Item)
+	 if config.Items.Tool.Item != "none" {
+        if toolObj := RenderItem(config.Items.Tool); toolObj != nil {
+            objects = append(objects, toolObj)
+        }
+    }
+	fmt.Printf("Texturize: Tool object added. Total objects: %d\n", len(objects))
 
 	return objects
 }
