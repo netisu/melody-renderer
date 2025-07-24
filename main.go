@@ -652,52 +652,41 @@ func RenderItem(itemData ItemData) *aeno.Object {
 	}
 }
 
-func ToolClause(toolData ItemData, leftArmColor, rightArmColor, shirtTextureHash string) []*aeno.Object {
-    objects := []*aeno.Object{}
-    cdnUrl := env("CDN_URL")
+func ToolClause(toolData ItemData, leftArmColor string, shirtTextureHash string) []*aeno.Object {
+	objects := []*aeno.Object{}
+	cdnUrl := env("CDN_URL")
 
-    defaultLeftArmMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/arm_left.obj", cdnUrl))
-    defaultLeftArmObj := &aeno.Object{
-        Mesh:  defaultLeftArmMesh,
-        Color: aeno.HexColor(leftArmColor),
-    }
+	var shirtTexture aeno.Texture
+	if shirtTextureHash != "none" {
+		textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnUrl, shirtTextureHash)
+		resp, err := http.Head(textureURL)
+		if err == nil && resp.StatusCode == http.StatusOK {
+			shirtTexture = aeno.LoadTextureFromURL(textureURL)
+		}
+	}
 
-    if shirtTextureHash != "none" {
-        shirtTexture := aeno.LoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", cdnUrl, shirtTextureHash))
-        if shirtTexture != nil {
-            defaultLeftArmObj.Texture = shirtTexture
-        }
-    }
+	var armMesh *aeno.Mesh
 
-    if toolData.Item != "none" {
-        armToolMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/arm_tool.obj", cdnUrl))
+	if toolData.Item != "none" {
+		armMesh = aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/arm_tool.obj", cdnUrl))
 
-        if toolMesh := RenderItem(toolData); toolMesh != nil {
-		    objects = append(objects, toolMesh)
-            fmt.Printf("ToolClause: Added tool mesh %s\n", toolData.Item)
-	    }
-        if armToolMesh != nil {
-            armToolObj := &aeno.Object{
-                Mesh:  armToolMesh,
-                Color: aeno.HexColor(leftArmColor),
-            }
-            // Apply shirt texture to the arm_tool if a shirt is worn
-            if shirtTextureHash != "none" {
-                shirtTexture := aeno.LoadTextureFromURL(fmt.Sprintf("%s/uploads/%s.png", cdnUrl, shirtTextureHash))
-                if shirtTexture != nil { // Check for zero-value texture
-                    armToolObj.Texture = shirtTexture
-                }
-            }
-            objects = append(objects, armToolObj)
-            fmt.Printf("ToolClause: Added arm_tool mesh.\n")
-        }
-    } else {
-        // If no tool, add the default left arm
-        objects = append(objects, defaultLeftArmObj)
-        fmt.Printf("ToolClause: No tool, added default left arm.\n")
-    }
+		if toolObj := RenderItem(toolData); toolObj != nil {
+			objects = append(objects, toolObj)
+		}
+	} else {
+		// If no tool is equipped, use the default arm mesh.
+		armMesh = aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/arm_left.obj", cdnUrl))
+	}
 
-    return objects
+	armObject := &aeno.Object{
+		Mesh:    armMesh,
+		Color:   aeno.HexColor(leftArmColor),
+		Texture: shirtTexture, 
+		Matrix:  aeno.Identity(),
+	}
+	objects = append(objects, armObject)
+
+	return objects
 }
 
 func generateObjects(userConfig UserConfig) []*aeno.Object {
