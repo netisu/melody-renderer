@@ -662,7 +662,7 @@ func ToolClause(toolData ItemData, armColor string, shirtTexture aeno.Texture, l
 	// If a tool is equipped, create a new, posed mesh.
 	if toolData.Item != "none" {
 		rotation := aeno.Rotate(aeno.V(1, 0, 0), math.Pi/2.0)
-		translation := aeno.Translate(aeno.V(0, 0.5, 0))
+		translation := aeno.Translate(aeno.V(-0.75, 0.85, 2))
 		transformMatrix := translation.Mul(rotation)
 
 		// Bake the transformation into a new mesh.
