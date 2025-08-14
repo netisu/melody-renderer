@@ -721,11 +721,7 @@ func generateObjects(userConfig UserConfig) []*aeno.Object {
 	bodyAndApparelObjects := Texturize(userConfig)
 	allObjects = append(allObjects, bodyAndApparelObjects...)
 
-	allObjects = append(allObjects, &aeno.Object{
-		Mesh:   cachedCraniumMesh,
-		Color:  aeno.HexColor(userConfig.Colors["Head"]),
-		Matrix: aeno.Identity(),
-	})
+	allObjects = append(allObjects, cachedCraniumMesh)
 
 	fmt.Printf("generateObjects: Cranium mesh added. Total objects: %d\n", len(allObjects))
 
@@ -733,7 +729,7 @@ func generateObjects(userConfig UserConfig) []*aeno.Object {
 	for _, obj := range allObjects {
 		if obj.Mesh != nil {
 			fmt.Printf("  generateObjects: Checking obj mesh %p against cached cranium mesh %p for face texture application.\n", obj.Mesh, cachedCraniumMesh)
-			if obj.Mesh == cachedCraniumMesh {
+        	if obj.Mesh == cachedCraniumMesh.Mesh {
 				fmt.Printf("  generateObjects: FOUND cranium mesh for face! Applying face texture.\n")
 				obj.Texture = AddFace(userConfig.Items.Face.Item)
 				break
