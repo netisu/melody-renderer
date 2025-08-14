@@ -262,8 +262,8 @@ func renderUser(e RenderEvent, w http.ResponseWriter) {
 	// 2. Create and fully configure your Phong shader
 	myShader := aeno.NewPhongShader(matrix, light, eye, aeno.HexColor(amb), aeno.HexColor(lightcolor))
 	myShader.EnableOutline = true
-	myShader.OutlineColor = aeno.HexColor("000000")
-	myShader.OutlineFactor = 0.08 // A smaller number makes the line thicker
+	myShader.OutlineColor = aeno.HexColor("FF0000")
+	myShader.OutlineFactor = 0.008 // A smaller number makes the line thicker
 
 	// 3. Call the NEW function, passing your custom shader
 	aeno.GenerateSceneWithShader(
