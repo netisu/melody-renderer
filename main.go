@@ -707,8 +707,10 @@ func generateObjects(userConfig UserConfig) []*aeno.Object {
 	} else {
 		headMeshPath = fmt.Sprintf("%s/uploads/%s.obj", cdnURL, headMeshName)
 	}
-	cachedCraniumMesh := aeno.LoadObjectFromURL(headMeshPath)
-
+	cachedCraniumMesh := aeno.NewObjectFromMesh(
+		aeno.LoadObjectFromURL(headMeshPath),
+	)
+	
 	cachedCraniumMesh.Outline = &aeno.Outline{
     	Thickness: 0.05,                     // Corresponds to line_style.thickness
     	Color:     aeno.HexColor("000000"),  // Corresponds to line_style.color
