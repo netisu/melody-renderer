@@ -256,8 +256,19 @@ func renderUser(e RenderEvent, w http.ResponseWriter) {
 	outputFile := path.Join("thumbnails", e.Hash+".png")
 	outputPath := path.Join(env("TEMP_DIR"), e.Hash+".png") // Renamed 'path' to 'outputPath' to avoid shadowing
 
-	aeno.GenerateScene(
+	aspect := float64(Dimentions) / float64(Dimentions)
+	matrix := aeno.LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
+
+	// 2. Create and fully configure your Phong shader
+	myShader := aeno.NewPhongShader(matrix, light, eye, aeno.HexColor(amb), aeno.HexColor(lightcolor))
+	myShader.EnableOutline = true
+	myShader.OutlineColor = aeno.HexColor("000000")
+	myShader.OutlineFactor = 0.08 // A smaller number makes the line thicker
+
+	// 3. Call the NEW function, passing your custom shader
+	aeno.GenerateSceneWithShader(
 		true,
+		myShader,
 		outputPath,
 		objects,
 		eye,
@@ -266,11 +277,6 @@ func renderUser(e RenderEvent, w http.ResponseWriter) {
 		fovy,
 		Dimentions,
 		scale,
-		light,
-		amb,
-		lightcolor,
-		near,
-		far,
 	)
 
 	fmt.Println("Uploading to the", env("S3_BUCKET"), "s3 bucket")
@@ -707,16 +713,18 @@ func generateObjects(userConfig UserConfig) []*aeno.Object {
 	} else {
 		headMeshPath = fmt.Sprintf("%s/uploads/%s.obj", cdnURL, headMeshName)
 	}
-	cachedCraniumMesh := aeno.NewObjectFromMesh(
-		aeno.LoadObjectFromURL(headMeshPath),
-	)
-	
+	cachedCraniumMesh := aeno.LoadObjectFromURL(headMeshPath)
+
 	fmt.Printf("generateObjects: Cached Head Mesh Pointer: %p\n", cachedCraniumMesh)
 
 	bodyAndApparelObjects := Texturize(userConfig)
 	allObjects = append(allObjects, bodyAndApparelObjects...)
 
-	allObjects = append(allObjects, cachedCraniumMesh)
+	allObjects = append(allObjects, &aeno.Object{
+		Mesh:   cachedCraniumMesh,
+		Color:  aeno.HexColor(userConfig.Colors["Head"]),
+		Matrix: aeno.Identity(),
+	})
 
 	fmt.Printf("generateObjects: Cranium mesh added. Total objects: %d\n", len(allObjects))
 
