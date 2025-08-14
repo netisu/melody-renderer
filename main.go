@@ -709,6 +709,11 @@ func generateObjects(userConfig UserConfig) []*aeno.Object {
 	}
 	cachedCraniumMesh := aeno.LoadObjectFromURL(headMeshPath)
 
+	cachedCraniumMesh.Outline = &aeno.Outline{
+    	Thickness: 0.05,                     // Corresponds to line_style.thickness
+    	Color:     aeno.HexColor("000000"),  // Corresponds to line_style.color
+	}
+	
 	fmt.Printf("generateObjects: Cached Head Mesh Pointer: %p\n", cachedCraniumMesh)
 
 	bodyAndApparelObjects := Texturize(userConfig)
