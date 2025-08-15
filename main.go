@@ -260,8 +260,7 @@ func renderUser(e RenderEvent, w http.ResponseWriter) {
 	matrix := aeno.LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
 
 	// 2. Create and fully configure your Phong shader
-	// myShader := aeno.NewPhongShader(matrix, light, eye, aeno.HexColor(amb), aeno.HexColor(lightcolor))
-	myShader := aeno.NewToonShader(matrix, light)
+	myShader := aeno.NewPhongShader(matrix, light, eye, aeno.HexColor(amb), aeno.HexColor(lightcolor))
 	myShader.EnableOutline = true
 	myShader.OutlineColor = aeno.HexColor("4B006E")
 	myShader.OutlineFactor = 0.3 // A smaller number makes the line thinner
