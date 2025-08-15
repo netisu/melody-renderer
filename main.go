@@ -262,7 +262,7 @@ func renderUser(e RenderEvent, w http.ResponseWriter) {
 	// 2. Create and fully configure your Phong shader
 	//	myShader := aeno.NewPhongShader(matrix, light, eye, aeno.HexColor(amb), aeno.HexColor(lightcolor))
 
-	myShader := eno.NewToonShader(matrix, light, eye, aeno.HexColor(amb), aeno.HexColor(lightcolor))
+	myShader := aeno.NewToonShader(matrix, light, eye, aeno.HexColor(amb), aeno.HexColor(lightcolor))
 	myShader.ShadowBands = 3.0       // 3 distinct color steps
 	myShader.LightCutoff = 0.8       // Makes shadows sharper
 	myShader.Glossiness = 0.9        // Creates a small, sharp specular highlight
