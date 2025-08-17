@@ -260,16 +260,12 @@ func renderUser(e RenderEvent, w http.ResponseWriter) {
 	matrix := aeno.LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
 
 	// 2. Create and fully configure your Phong shader
-	//	myShader := aeno.NewPhongShader(matrix, light, eye, aeno.HexColor(amb), aeno.HexColor(lightcolor))
+	//	myShader := aeno.NewToonShader(matrix, light, eye, aeno.HexColor(amb), aeno.HexColor(lightcolor))
 
-	myShader := aeno.NewToonShader(matrix, light, eye, aeno.HexColor(amb), aeno.HexColor(lightcolor))
-	myShader.ShadowBands = 3.0       // 3 distinct color steps
-	myShader.LightCutoff = 0.8       // Makes shadows sharper
-	myShader.Glossiness = 0.9        // Creates a small, sharp specular highlight
-	
-	// Create a soft blue backlight effect
-	myShader.RimSize = 0.6
-	myShader.RimColor = aeno.HexColor("87CEEB").MulScalar(0.5) // A transparent sky blue
+	myShader := aeno.NewPhongShader(matrix, light, eye, aeno.HexColor(amb), aeno.HexColor(lightcolor))
+	myShader.EnableOutline = true
+	myShader.OutlineColor = aeno.HexColor("4B006E")
+	myShader.OutlineFactor = 0.3
 
 	// 3. Call the NEW function, passing your custom shader
 	aeno.GenerateSceneWithShader(
