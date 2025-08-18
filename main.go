@@ -256,13 +256,10 @@ func renderUser(e RenderEvent, w http.ResponseWriter) {
 	outputFile := path.Join("thumbnails", e.Hash+".png")
 	outputPath := path.Join(env("TEMP_DIR"), e.Hash+".png") // Renamed 'path' to 'outputPath' to avoid shadowing
 
-	aspect := float64(Dimentions) / float64(Dimentions)
-	matrix := aeno.LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
-
 	// Test concluded
 	aeno.GenerateScene(
 		true,
-		fullPath,
+		outputPath,
 		objects,
 		eye,
 		center,
