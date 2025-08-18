@@ -259,19 +259,10 @@ func renderUser(e RenderEvent, w http.ResponseWriter) {
 	aspect := float64(Dimentions) / float64(Dimentions)
 	matrix := aeno.LookAt(eye, center, up).Perspective(fovy, aspect, near, far)
 
-	// 2. Create and fully configure your Phong shader
-	//	myShader := aeno.NewToonShader(matrix, light, eye, aeno.HexColor(amb), aeno.HexColor(lightcolor))
-
-	myShader := aeno.NewPhongShader(matrix, light, eye, aeno.HexColor(amb), aeno.HexColor(lightcolor))
-	myShader.EnableOutline = true
-	myShader.OutlineColor = aeno.HexColor("4B006E")
-	myShader.OutlineFactor = 0.3
-
-	// 3. Call the NEW function, passing your custom shader
-	aeno.GenerateSceneWithShader(
+	// Test concluded
+	aeno.GenerateScene(
 		true,
-		myShader,
-		outputPath,
+		fullPath,
 		objects,
 		eye,
 		center,
@@ -279,6 +270,11 @@ func renderUser(e RenderEvent, w http.ResponseWriter) {
 		fovy,
 		Dimentions,
 		scale,
+		light,
+		amb,
+		lightcolor,
+		near,
+		far,
 	)
 
 	fmt.Println("Uploading to the", env("S3_BUCKET"), "s3 bucket")
