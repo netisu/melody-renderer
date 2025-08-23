@@ -27,7 +27,7 @@ const (
 	far        = 1000
 	amb        = "b0b0b0" // d4d4d4
 	lightcolor = "808080" // 696969
-	Dimentions = 512      // april fools (15)
+	Dimentions = 256      // april fools (15)
 )
 
 var (
