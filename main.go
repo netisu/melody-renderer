@@ -58,21 +58,16 @@ type EditStyle struct {
 }
 
 type RenderEvent struct {
-	RenderType string     `json:"RenderType"`
 	Hash       string     `json:"Hash"`
 	RenderJson UserConfig `json:"RenderJson"` // Use interface{} for flexibility
 }
 
 type ItemEvent struct {
-	RenderType string     `json:"RenderType"`
 	Hash       string     `json:"Hash"`
 	RenderJson ItemConfig `json:"RenderJson"` // Use interface{} for flexibility
 }
 
 type HatsCollection map[string]ItemData
-
-// hatKeyPattern is a regular expression to match keys like "hat_1", "hat_123", etc.
-var hatKeyPattern = regexp.MustCompile(`^hat_\d+$`)
 
 type UserConfig struct {
 	BodyParts BodyParts `json:"body_parts"`
@@ -140,44 +135,150 @@ var useDefault UserConfig = UserConfig{
 	},
 }
 
-func env(key string) string {
+// hatKeyPattern is a regular expression to match keys like "hat_1", "hat_123", etc.
+var hatKeyPattern = regexp.MustCompile(`^hat_\d+$`)
 
-	err := godotenv.Load(path.Join(rootDir, ".env"))
-	if err != nil {
-		log.Fatalf("Note: .env file not found or could not be loaded.")
+type Config struct {
+	PostKey       string
+	ServerAddress string
+	S3AccessKey   string
+	S3SecretKey   string
+	S3Endpoint    string
+	S3Region      string
+	S3Bucket      string
+	CDNURL        string
+	RootDir       string
+}
+
+// A thread-safe cache for meshes and textures to avoid redundant downloads.
+type AssetCache struct {
+	mu       sync.RWMutex
+	meshes   map[string]*aeno.Mesh
+	textures map[string]aeno.Texture
+}
+
+func NewAssetCache() *AssetCache {
+	return &AssetCache{
+		meshes:   make(map[string]*aeno.Mesh),
+		textures: make(map[string]aeno.Texture),
+	}
+}
+// GetMesh fetches a mesh from the cache or loads it from the URL if not present.
+func (c *AssetCache) GetMesh(url string) *aeno.Mesh {
+	c.mu.RLock()
+	mesh, ok := c.meshes[url]
+	c.mu.RUnlock()
+	if ok {
+		return mesh
 	}
 
-	return os.Getenv(key)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	// Double-check in case another goroutine loaded it while we were waiting for the lock
+	if mesh, ok = c.meshes[url]; ok {
+		return mesh
+	}
+
+	mesh = aeno.LoadObjectFromURL(url)
+	c.meshes[url] = mesh
+	return mesh
+}
+
+// GetTexture fetches a texture from the cache or loads it from the URL if not present.
+func (c *AssetCache) GetTexture(url string) aeno.Texture {
+	c.mu.RLock()
+	texture, ok := c.textures[url]
+	c.mu.RUnlock()
+	if ok {
+		return texture
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if texture, ok = c.textures[url]; ok {
+		return texture
+	}
+
+	// Only load if the texture actually exists
+	resp, err := http.Head(url)
+	if err == nil && resp.StatusCode == http.StatusOK {
+		texture = aeno.LoadTextureFromURL(url)
+		c.textures[url] = texture
+		return texture
+	}
+	// Return a nil texture if not found, which can be handled by the renderer
+	return nil
+}
+
+type Server struct {
+	config     *Config
+	s3Uploader *s3.S3
+	cache      *AssetCache
+}
+
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
 }
 
 func main() {
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	rootDir := getEnv("RENDERER_ROOT_DIR", "/var/www/renderer")
+	if err := godotenv.Load(path.Join(rootDir, ".env")); err != nil {
+		log.Println("Warning: .env file not found or could not be loaded.")
+	}
+	cfg := &Config{
+		PostKey:       os.Getenv("POST_KEY"),
+		ServerAddress: os.Getenv("SERVER_ADDRESS"),
+		S3AccessKey:   os.Getenv("S3_ACCESS_KEY"),
+		S3SecretKey:   os.Getenv("S3_SECRET_KEY"),
+		S3Endpoint:    os.Getenv("S3_ENDPOINT"),
+		S3Region:      os.Getenv("S3_REGION"),
+		S3Bucket:      os.Getenv("S3_BUCKET"),
+		CDNURL:        os.Getenv("CDN_URL"),
+		RootDir:       rootDir,
+	}
 
-		if env("POST_KEY") != "" && r.Header.Get("Aeo-Access-Key") != env("POST_KEY") {
-			fmt.Println("Unauthorized request")
-			http.Error(w, "Unauthorized request", http.StatusBadRequest)
-			return
-		}
+	s3Config := &aws.Config{
+		Credentials:      credentials.NewStaticCredentials(cfg.S3AccessKey, cfg.S3SecretKey, ""),
+		Endpoint:         aws.String(cfg.S3Endpoint),
+		Region:           aws.String(cfg.S3Region),
+		S3ForcePathStyle: aws.Bool(true),
+	}
+	newSession, err := session.NewSession(s3Config)
+	if err != nil {
+		log.Fatalf("Failed to create S3 session: %v", err)
+	}
 
-		if r.Method != http.MethodPost {
-			fmt.Println("Method not allowed")
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-
-		renderCommand(w, r)
-	})
+	server := &Server{
+		config:     cfg,
+		s3Uploader: s3.New(newSession),
+		cache:      NewAssetCache(),
+	}
+	http.HandleFunc("/", server.handleRender)
 
 	// Start the HTTP server
-	fmt.Printf("Starting server on %s\n", env("SERVER_ADDRESS"))
-	if err := http.ListenAndServe(env("SERVER_ADDRESS"), nil); err != nil {
-		fmt.Println("HTTP server error:", err)
+	fmt.Printf("Starting server on %s\n", cfg.ServerAddress)
+	if err := http.ListenAndServe(cfg.ServerAddress, nil); err != nil {
+		log.Fatalf("HTTP server error: %v", err)
 	}
 }
 
-func renderCommand(w http.ResponseWriter, r *http.Request) {
+type RenderRequestType struct {
+	RenderType string `json:"RenderType"`
+}
 
-	// Read the request body
+func (s *Server) handleRender(w http.ResponseWriter, r *http.Request) {
+	if s.config.PostKey != "" && r.Header.Get("Aeo-Access-Key") != s.config.PostKey {
+		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Error reading request body", http.StatusBadRequest)
@@ -185,444 +286,158 @@ func renderCommand(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	// Decode the request body into a RenderEvent struct
-	var e RenderEvent
-	err = json.Unmarshal([]byte(body), &e)
-	if err != nil {
-		fmt.Println("Error decoding request:", err)
-		fmt.Println("Request Body:", string(body)) // For debugging
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	// Unmarshal just the type first to decide what to do.
+	var reqType RenderRequestType
+	if err := json.Unmarshal(body, &reqType); err != nil {
+		http.Error(w, "Invalid request body: could not determine RenderType", http.StatusBadRequest)
 		return
 	}
 
-	var i ItemEvent
-	err = json.Unmarshal([]byte(body), &i)
-	if err != nil {
-		fmt.Println("Error decoding request:", err)
-		fmt.Println("Request Body:", string(body)) // For debugging
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
+	log.Printf("Received render request of type: %s", reqType.RenderType)
 
-	fmt.Println(e.RenderType)
-
-	// Extract query parameters with default values
-	fmt.Println("Running Function", e.RenderType)
-	switch e.RenderType {
+	switch reqType.RenderType {
 	case "user":
-		renderUser(e, w)
-		renderHeadshot(e, w)
+		var e RenderEvent
+		if err := json.Unmarshal(body, &e); err != nil {
+			http.Error(w, "Invalid request body for type 'user'", http.StatusBadRequest)
+			return
+		}
+		s.handleUserRender(w, e)
 	case "item":
-		renderItem(i, w)
+		var i ItemEvent
+		if err := json.Unmarshal(body, &i); err != nil {
+			http.Error(w, "Invalid request body for type 'item'", http.StatusBadRequest)
+			return
+		}
+		s.handleItemRender(w, i, false) // isPreview = false
 	case "item_preview":
-		renderItemPreview(i, w)
+		var i ItemEvent
+		if err := json.Unmarshal(body, &i); err != nil {
+			http.Error(w, "Invalid request body for type 'item_preview'", http.StatusBadRequest)
+			return
+		}
+		s.handleItemRender(w, i, true) // isPreview = true
 	default:
-		fmt.Println("Invalid renderType:", e.RenderType)
-		return
+		http.Error(w, "Invalid RenderType specified", http.StatusBadRequest)
 	}
 }
-
-func renderUser(e RenderEvent, w http.ResponseWriter) {
-	// Delegate user avatar rendering logic here
-	s3Config := &aws.Config{
-		Credentials:      credentials.NewStaticCredentials(env("S3_ACCESS_KEY"), env("S3_SECRET_KEY"), ""),
-		Endpoint:         aws.String(env("S3_ENDPOINT")),
-		Region:           aws.String(env("S3_REGION")),
-		S3ForcePathStyle: aws.Bool(true),
-	}
-
-	newSession := session.New(s3Config)
-
-	// Create an uploader with the session and default options
-	uploader := s3.New(newSession)
-
-	fmt.Println("Getting userstring", e.Hash)
-
-	// Get UserJson from the URL query parameters
-	userJson := e.RenderJson
-
-	// Check if UserJson is present
-	if reflect.ValueOf(userJson).IsZero() {
-		log.Println("Warning: UserJson query parameter is missing, the avatar will not render !")
-		http.Error(w, "UserJson query parameter is missing", http.StatusBadRequest)
-		return
-	}
-
+func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 	start := time.Now()
-	fmt.Println("Drawing Objects...")
-	// Generate the list of objects using the function
-	objects := generateObjects(userJson)
-	fmt.Println("Exporting to", env("TEMP_DIR"), "thumbnails")
-	outputFile := path.Join("thumbnails", e.Hash+".png")
-	outputPath := path.Join(env("TEMP_DIR"), e.Hash+".png") // Renamed 'path' to 'outputPath' to avoid shadowing
+	objects := s.generateObjects(e.RenderJson)
 
-	// Test concluded
-	aeno.GenerateScene(
-		true,
-		outputPath,
-		objects,
-		eye,
-		center,
-		up,
-		fovy,
-		Dimentions,
-		scale,
-		light,
-		amb,
-		lightcolor,
-		near,
-		far,
-	)
+	var wg sync.WaitGroup
+	wg.Add(2) // We are running two render jobs in parallel
 
-	fmt.Println("Uploading to the", env("S3_BUCKET"), "s3 bucket")
+	// Goroutine for the full body render
+	go func() {
+		defer wg.Done()
+		outputKey := path.Join("thumbnails", e.Hash+".png")
+		
+        // OPTIMIZATION: Render directly to an in-memory buffer
+		var buffer bytes.Buffer
+		aeno.GenerateSceneToWriter( // Assuming the library has or can be adapted to have this function
+			&buffer,
+			objects,
+			eye, center, up, fovy,
+			Dimentions, scale, light, amb, lightcolor, near, far, true, // Pass transparentBG flag
+		)
 
-	f, err := os.Open(outputPath)
-	if err != nil {
-		fmt.Printf("Failed to open file %q: %v", outputPath, err) // Log the error
-	}
-	defer f.Close()
+		s.uploadToS3(buffer.Bytes(), outputKey)
+	}()
 
-	fileInfo, _ := f.Stat()
-	var size int64 = fileInfo.Size()
-	buffer := make([]byte, size)
-	f.Read(buffer)
+	// Goroutine for the headshot render
+	go func() {
+		defer wg.Done()
+		var (
+			headshot_eye    = aeno.V(-4, 7, 13)
+			headshot_center = aeno.V(-0.5, 6.8, 0)
+			headshot_up     = aeno.V(0, 4, 0)
+		)
+		outputKey := path.Join("thumbnails", e.Hash+"_headshot.png")
 
-	object := s3.PutObjectInput{
-		Bucket:             aws.String(env("S3_BUCKET")),
-		Key:                aws.String(outputFile),
-		Body:               bytes.NewReader(buffer),
-		ContentLength:      aws.Int64(size),
-		ContentType:        aws.String("image/png"),
-		ContentDisposition: aws.String("attachment"),
-		ACL:                aws.String("public-read"),
-	}
+        // OPTIMIZATION: Render directly to an in-memory buffer
+		var buffer bytes.Buffer
+		aeno.GenerateSceneToWriter(
+			&buffer,
+			objects,
+			headshot_eye, headshot_center, headshot_up, fovy,
+			Dimentions, scale, light, amb, lightcolor, near, far, false,
+		)
 
-	fmt.Println("File uploaded")
-	fmt.Printf("%v\n", object)
-	_, err = uploader.PutObject(&object)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-	_ = os.Remove(outputPath)
+		s.uploadToS3(buffer.Bytes(), outputKey)
+	}()
 
-	fmt.Println("Completed in", time.Since(start))
-
-	// Set the response content type to image/png
-	w.Header().Set("Content-Type", "image/png")
-
+	wg.Wait() // Wait for both renders to complete
+	log.Printf("Completed user render for %s in %v", e.Hash, time.Since(start))
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintln(w, "User render and headshot processed successfully.")
 }
 
-func renderItemPreview(i ItemEvent, w http.ResponseWriter) {
-	var outputFile string
-	var fullPath string
-
-	// Delegate user avatar rendering logic here
-	s3Config := &aws.Config{
-		Credentials:      credentials.NewStaticCredentials(env("S3_ACCESS_KEY"), env("S3_SECRET_KEY"), ""),
-		Endpoint:         aws.String(env("S3_ENDPOINT")),
-		Region:           aws.String(env("S3_REGION")),
-		S3ForcePathStyle: aws.Bool(true),
-	}
-
-	newSession := session.New(s3Config)
-
-	// Create an uploader with the session and default options
-	uploader := s3.New(newSession)
-
-	if i.Hash == "default" {
-		fmt.Println("Item Hash is required")
-		return
-	}
-	if i.RenderJson.ItemType == "none" {
-		fmt.Println("Item String is required")
-		return
-	}
-
-	// Get itemJson from the URL query parameters
-	itemConfig := i.RenderJson
-	itemData := itemConfig.Item
-
-	// Check the inner 'Item' field
-	if itemData.Item == "none" {
-		log.Println("Warning: No item specified in RenderJson for item event.")
-		http.Error(w, "No item specified to render", http.StatusBadRequest)
-		return
-	}
-
-	// ... (call generateObjects and GenerateScene with user specific logic)
+// --- NEW: Unified Item Render Handler ---
+func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent, isPreview bool) {
 	start := time.Now()
-	fmt.Println("Drawing Object for item:", itemData.Item) // Access the inner 'Item' field
 	var objects []*aeno.Object
-
-	// Generate the list of objects using the function
-	objects = generatePreview(itemConfig)
-	fmt.Println("Exporting to", env("TEMP_DIR"), "thumbnails")
-
-	if i.RenderJson.PathMod {
-		outputFile = path.Join("thumbnails", i.Hash+"_preview.png") // Assign to outputFile
-		fullPath = path.Join(env("TEMP_DIR"), i.Hash+".png")        // Construct the full path
+	var outputKey string
+	
+	if isPreview {
+		objects = s.generatePreview(i.RenderJson)
+		if i.RenderJson.PathMod {
+			outputKey = path.Join("thumbnails", i.Hash+"_preview.png")
+		} else {
+			outputKey = path.Join("thumbnails", i.Hash+".png")
+		}
 	} else {
-		outputFile = path.Join("thumbnails", i.Hash+".png")  // Assign to outputFile
-		fullPath = path.Join(env("TEMP_DIR"), i.Hash+".png") // Construct the full path
+		if renderedObject := s.RenderItem(i.RenderJson.Item); renderedObject != nil {
+			objects = []*aeno.Object{renderedObject}
+		}
+		outputKey = path.Join("thumbnails", i.Hash+".png")
 	}
 
-	aeno.GenerateScene(
-		true,
-		fullPath,
-		objects,
-		eye,
-		center,
-		up,
-		fovy,
-		Dimentions,
-		scale,
-		light,
-		amb,
-		lightcolor,
-		near,
-		far,
-	)
-
-	fmt.Println("Uploading to the", env("S3_BUCKET"), "s3 bucket")
-
-	f, err := os.Open(fullPath)
-	if err != nil {
-		fmt.Printf("Failed to open file %q: %v", fullPath, err) // Log the error
-	}
-	defer f.Close()
-
-	fileInfo, _ := f.Stat()
-	var size int64 = fileInfo.Size()
-	buffer := make([]byte, size)
-	f.Read(buffer)
-
-	object := s3.PutObjectInput{
-		Bucket:             aws.String(env("S3_BUCKET")),
-		Key:                aws.String(outputFile),
-		Body:               bytes.NewReader(buffer),
-		ContentLength:      aws.Int64(size),
-		ContentType:        aws.String("image/png"),
-		ContentDisposition: aws.String("attachment"),
-		ACL:                aws.String("public-read"),
-	}
-
-	fmt.Println("File uploaded")
-	fmt.Printf("%v\n", object)
-	_, err = uploader.PutObject(&object)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-	_ = os.Remove(fullPath)
-
-	fmt.Println("Completed in", time.Since(start))
-
-	// Set the response content type to image/png
-	w.Header().Set("Content-Type", "image/png")
-
-}
-
-func renderItem(i ItemEvent, w http.ResponseWriter) {
-	// Delegate user avatar rendering logic here
-	s3Config := &aws.Config{
-		Credentials:      credentials.NewStaticCredentials(env("S3_ACCESS_KEY"), env("S3_SECRET_KEY"), ""),
-		Endpoint:         aws.String(env("S3_ENDPOINT")),
-		Region:           aws.String(env("S3_REGION")),
-		S3ForcePathStyle: aws.Bool(true),
-	}
-
-	newSession := session.New(s3Config)
-
-	// Create an uploader with the session and default options
-	uploader := s3.New(newSession)
-
-	if i.Hash == "" {
-		fmt.Println("itemstring is required")
+	if len(objects) == 0 {
+		http.Error(w, "No objects to render for this item", http.StatusBadRequest)
 		return
 	}
 
-	fmt.Println("Getting itemstring", i.Hash)
-
-	// Get itemJson from the URL query parameters
-	itemConfig := i.RenderJson
-	itemData := itemConfig.Item
-
-	// Check if UserJson is present
-	if reflect.ValueOf(itemConfig).IsZero() {
-		log.Println("Warning: itemJson query parameter is missing, the item will not render !")
-		http.Error(w, "itemJson query parameter is missing", http.StatusBadRequest)
-		return
-	}
-	start := time.Now()
-	fmt.Println("Drawing Objects...")
-	// Generate the list of objects using the function
-	var objects []*aeno.Object
-
-	renderedObject := RenderItem(itemData)
-	objects = []*aeno.Object{renderedObject}
-
-	fmt.Println("Exporting to", env("TEMP_DIR"), "thumbnails")
-	outputFile := path.Join("thumbnails", i.Hash+".png")
-	outputPath := path.Join(env("TEMP_DIR"), i.Hash+".png")
-
-	aeno.GenerateScene(
-		true,
-		outputPath,
+	var buffer bytes.Buffer
+	aeno.GenerateSceneToWriter(
+		&buffer,
 		objects,
-		aeno.V(1, 2, 3),
-		center,
-		up,
-		fovy,
-		Dimentions,
-		scale,
-		light,
-		amb,
-		lightcolor,
-		near,
-		far,
+		eye, center, up, fovy,
+		Dimentions, scale, light, amb, lightcolor, near, far, true,
 	)
 
-	fmt.Println("Uploading to the", env("S3_BUCKET"), "s3 bucket")
-
-	f, err := os.Open(outputPath)
-	if err != nil {
-		fmt.Printf("Failed to open file %q: %v", outputPath, err) // Log the error
-	}
-	defer f.Close()
-
-	fileInfo, _ := f.Stat()
-	var size int64 = fileInfo.Size()
-	buffer := make([]byte, size)
-	f.Read(buffer)
-
-	object := s3.PutObjectInput{
-		Bucket:             aws.String(env("S3_BUCKET")),
-		Key:                aws.String(outputFile),
-		Body:               bytes.NewReader(buffer),
-		ContentLength:      aws.Int64(size),
-		ContentType:        aws.String("image/png"),
-		ContentDisposition: aws.String("attachment"),
-		ACL:                aws.String("public-read"),
-	}
-
-	fmt.Println("File uploaded")
-	fmt.Printf("%v\n", object)
-	_, err = uploader.PutObject(&object)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-	_ = os.Remove(outputPath)
-
-	fmt.Println("Completed in", time.Since(start))
-
-	// Set the response content type to image/png
-	w.Header().Set("Content-Type", "image/png")
-	// ... (call generateObjects and GenerateScene with item specific logic)
+	s.uploadToS3(buffer.Bytes(), outputKey)
+	
+	log.Printf("Completed item render for %s in %v", i.Hash, time.Since(start))
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintln(w, "Item processed successfully.")
 }
 
-func renderHeadshot(e RenderEvent, w http.ResponseWriter) {
-	// Delegate user avatar rendering logic here
-	s3Config := &aws.Config{
-		Credentials:      credentials.NewStaticCredentials(env("S3_ACCESS_KEY"), env("S3_SECRET_KEY"), ""),
-		Endpoint:         aws.String(env("S3_ENDPOINT")),
-		Region:           aws.String(env("S3_REGION")),
-		S3ForcePathStyle: aws.Bool(true),
-	}
+func (s *Server) uploadToS3(buffer []byte, key string) {
+	size := int64(len(buffer))
 
-	newSession := session.New(s3Config)
+	_, err := s.s3Uploader.PutObject(&s3.PutObjectInput{
+		Bucket:        aws.String(s.config.S3Bucket),
+		Key:           aws.String(key),
+		Body:          bytes.NewReader(buffer),
+		ContentLength: aws.Int64(size),
+		ContentType:   aws.String("image/png"),
+		ACL:           aws.String("public-read"),
+	})
 
-	// Create an uploader with the session and default options
-	uploader := s3.New(newSession)
-
-	// Delegate headshot rendering logic here
-	fmt.Println("Rendering Headshot...")
-	var (
-		headshot_fovy   = 22.5
-		headshot_near   = 1.0    // Much smaller near plane for close-ups
-		headshot_far    = 1000.0 // Can be smaller for headshots as well
-		headshot_eye    = aeno.V(-4, 7, 13)
-		headshot_center = aeno.V(-0.5, 6.8, 0)
-		headshot_up     = aeno.V(0, 4, 0)
-	)
-
-	// Get UserJson from the URL query parameters
-	userJson := e.RenderJson
-
-	// Check if UserJson is present
-	if reflect.ValueOf(userJson).IsZero() {
-		log.Println("Warning: UserJson query parameter is missing, the avatar will not render !")
-		http.Error(w, "UserJson query parameter is missing", http.StatusBadRequest)
-		return
-	}
-
-	start := time.Now()
-	fmt.Println("Drawing Objects...")
-	// Generate the list of objects using the function
-	objects := generateObjects(userJson)
-
-	fmt.Println("Exporting to", env("TEMP_DIR"), "thumbnails")
-	outputFile := path.Join("thumbnails", e.Hash+"_headshot.png")
-
-	path := path.Join(env("TEMP_DIR"), e.Hash+"_headshot.png")
-	aeno.GenerateScene(
-		false,
-		path,
-		objects,
-		headshot_eye,
-		headshot_center,
-		headshot_up,
-		headshot_fovy,
-		Dimentions,
-		scale,
-		light,
-		amb,
-		lightcolor,
-		headshot_near,
-		headshot_far,
-	)
-
-	fmt.Println("Uploading to the", env("S3_BUCKET"), "s3 bucket")
-
-	f, err := os.Open(path)
 	if err != nil {
-		fmt.Printf("Failed to open file %q: %v", path, err) // Log the error
+		log.Printf("Failed to upload %s to S3: %v", key, err)
+	} else {
+		log.Printf("Successfully uploaded %s to S3.", key)
 	}
-	defer f.Close()
-
-	fileInfo, _ := f.Stat()
-	var size int64 = fileInfo.Size()
-	buffer := make([]byte, size)
-	f.Read(buffer)
-
-	object := s3.PutObjectInput{
-		Bucket:             aws.String(env("S3_BUCKET")),
-		Key:                aws.String(outputFile),
-		Body:               bytes.NewReader(buffer),
-		ContentLength:      aws.Int64(size),
-		ContentType:        aws.String("image/png"),
-		ContentDisposition: aws.String("attachment"),
-		ACL:                aws.String("public-read"),
-	}
-
-	fmt.Println("File uploaded")
-	fmt.Printf("%v\n", object)
-	_, err = uploader.PutObject(&object)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-	_ = os.Remove(path)
-
-	fmt.Println("Completed in", time.Since(start))
-
-	// Set the response content type to image/png
-	w.Header().Set("Content-Type", "image/png")
 }
 
-func RenderItem(itemData ItemData) *aeno.Object {
+func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
 	if itemData.Item == "none" {
 		return nil // No item to render for this slot
 	}
 
-	cdnURL := env("CDN_URL")
+	cdnURL := s.config.CDNURL
 	meshURL := fmt.Sprintf("%s/uploads/%s.obj", cdnURL, itemData.Item)
 	textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, itemData.Item)
 
@@ -646,9 +461,9 @@ func RenderItem(itemData ItemData) *aeno.Object {
 	}
 
 	return &aeno.Object{
-		Mesh:    aeno.LoadObjectFromURL(meshURL),
+		Mesh:    s.cache.GetMesh(meshURL),
 		Color:   aeno.Transparent,
-		Texture: texture,
+		Texture: s.cache.GetTexture(textureURL),
 		Matrix:  aeno.Identity(),
 	}
 }
