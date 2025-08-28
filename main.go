@@ -614,36 +614,36 @@ func (s *Server) Texturize(config UserConfig) []*aeno.Object {
 
 	return objects
 }
-func (s *Server) generatePreview(conifg ItemConfig) []*aeno.Object {
-	fmt.Printf("generatePreview: Starting for ItemType: %s, Item: %+v\n", conifg.ItemType, conifg.Item)
+func (s *Server) generatePreview(config ItemData) []*aeno.Object {
+	fmt.Printf("generatePreview: Starting for ItemType: %s, Item: %+v\n", config.ItemType, config.Item)
 
 	previewConfig := useDefault
 
-	itemType := itemConfig.ItemType
-	itemData := itemConfig.Item
+	itemType := config.ItemType
+	itemData := config.Item
 
 	switch itemType {
 	case "face":
-		previewConfig.Items.Face = conifg
+		previewConfig.Items.Face = config
 	case "hat":
 		previewConfig.Items.Hats = make(HatsCollection)
-		previewConfig.Items.Hats["hat_1"] = conifg
+		previewConfig.Items.Hats["hat_1"] = config
 	case "addon":
-		previewConfig.Items.Addon = conifg
+		previewConfig.Items.Addon = config
 	case "tool":
-		previewConfig.Items.Tool = conifg
+		previewConfig.Items.Tool = config
 	case "pants":
-		previewConfig.Items.Pants = conifg
+		previewConfig.Items.Pants = config
 	case "shirt":
-		previewConfig.Items.Shirt = conifg
+		previewConfig.Items.Shirt = config
 	case "tshirt":
-		previewConfig.Items.Tshirt = conifg
+		previewConfig.Items.Tshirt = config
 	case "head":
 		if itemData.Item != "none" {
-			previewConfig.BodyParts.Head = conifg.Item
+			previewConfig.BodyParts.Head = config.Item
 		}
 	default:
-		fmt.Printf("generatePreview: Unhandled item type '%s'. Showing default avatar.\n", conifg)
+		fmt.Printf("generatePreview: Unhandled item type '%s'. Showing default avatar.\n", config)
 	}
 	return s.generateObjects(previewConfig)
 }
