@@ -624,20 +624,20 @@ func (s *Server) generatePreview(config ItemConfig) []*aeno.Object {
 
 	switch itemType {
 	case "face":
-		previewConfig.Items.Face = config
+		previewConfig.Items.Face = config.Item
 	case "hat":
 		previewConfig.Items.Hats = make(HatsCollection)
-		previewConfig.Items.Hats["hat_1"] = config
+		previewConfig.Items.Hats["hat_1"] =  config.Item
 	case "addon":
-		previewConfig.Items.Addon = config
+		previewConfig.Items.Addon =  config.Item
 	case "tool":
-		previewConfig.Items.Tool = config
+		previewConfig.Items.Tool =  config.Item
 	case "pants":
-		previewConfig.Items.Pants = config
+		previewConfig.Items.Pants =  config.Item
 	case "shirt":
-		previewConfig.Items.Shirt = config
+		previewConfig.Items.Shirt =  config.Item
 	case "tshirt":
-		previewConfig.Items.Tshirt = config
+		previewConfig.Items.Tshirt =  config.Item
 	case "head":
 		if itemData.Item != "none" {
 			previewConfig.BodyParts.Head = config.Item
