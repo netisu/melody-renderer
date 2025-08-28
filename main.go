@@ -643,7 +643,7 @@ func (s *Server) generatePreview(config ItemConfig) []*aeno.Object {
 			previewConfig.BodyParts.Head = config.Item.Item
 		}
 	default:
-		fmt.Printf("generatePreview: Unhandled item type '%s'. Showing default avatar.\n", config)
+		fmt.Printf("generatePreview: Unhandled item type '%s'. Showing default avatar.\n", config.ItemType)
 	}
 	return s.generateObjects(previewConfig)
 }
