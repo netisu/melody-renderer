@@ -640,7 +640,7 @@ func (s *Server) generatePreview(config ItemConfig) []*aeno.Object {
 		previewConfig.Items.Tshirt =  config.Item
 	case "head":
 		if itemData.Item != "none" {
-			previewConfig.BodyParts.Head = config.Item
+			previewConfig.BodyParts.Head = config.Item.item
 		}
 	default:
 		fmt.Printf("generatePreview: Unhandled item type '%s'. Showing default avatar.\n", config)
