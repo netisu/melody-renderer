@@ -614,7 +614,7 @@ func (s *Server) Texturize(config UserConfig) []*aeno.Object {
 
 	return objects
 }
-func (s *Server) generatePreview(config ItemData) []*aeno.Object {
+func (s *Server) generatePreview(config ItemConfig) []*aeno.Object {
 	fmt.Printf("generatePreview: Starting for ItemType: %s, Item: %+v\n", config.ItemType, config.Item)
 
 	previewConfig := useDefault
