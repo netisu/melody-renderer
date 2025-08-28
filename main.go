@@ -4,39 +4,40 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"path"
+	"regexp"
+	"sync"
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/joho/godotenv"
 	"github.com/netisu/aeno"
-	"io"
-	"sync"
-	"log"
-	"net/http"
-	"os"
-	"path"
-	"reflect"
-	"regexp"
-	"time"
 )
 
+// --- Constants and Global Variables ---
+// (Structs like ItemData, BodyParts, etc. remain unchanged from your original code)
 const (
 	scale      = 1
 	fovy       = 22.5
 	near       = 1.0
 	far        = 1000
-	amb        = "b0b0b0" // d4d4d4
-	lightcolor = "808080" // 696969
-	Dimentions = 512      // april fools (15)
+	amb        = "b0b0b0"
+	lightcolor = "808080"
+	Dimentions = 512
 )
 
 var (
-	eye     = aeno.V(-0.75, 0.85, 2)
-	center  = aeno.V(0, 0, 0)
-	up      = aeno.V(0, 1.5, 0)
-	light   = aeno.V(-1, 3, 1).Normalize()
-	rootDir = "/var/www/renderer"
+	eye    = aeno.V(-0.75, 0.85, 2)
+	center = aeno.V(0, 0, 0)
+	up     = aeno.V(0, 1.5, 0)
+	light  = aeno.V(-1, 3, 1).Normalize()
 )
 
 type ItemData struct {
@@ -139,6 +140,8 @@ var useDefault UserConfig = UserConfig{
 // hatKeyPattern is a regular expression to match keys like "hat_1", "hat_123", etc.
 var hatKeyPattern = regexp.MustCompile(`^hat_\d+$`)
 
+
+// Holds all environment variables, loaded once at startup.
 type Config struct {
 	PostKey       string
 	ServerAddress string
@@ -151,6 +154,7 @@ type Config struct {
 	RootDir       string
 }
 
+// --- NEW: Asset Cache ---
 // A thread-safe cache for meshes and textures to avoid redundant downloads.
 type AssetCache struct {
 	mu       sync.RWMutex
@@ -164,6 +168,7 @@ func NewAssetCache() *AssetCache {
 		textures: make(map[string]aeno.Texture),
 	}
 }
+
 // GetMesh fetches a mesh from the cache or loads it from the URL if not present.
 func (c *AssetCache) GetMesh(url string) *aeno.Mesh {
 	c.mu.RLock()
@@ -211,12 +216,14 @@ func (c *AssetCache) GetTexture(url string) aeno.Texture {
 	return nil
 }
 
+// Holds shared dependencies like config, S3 client, and cache.
 type Server struct {
 	config     *Config
 	s3Uploader *s3.S3
 	cache      *AssetCache
 }
 
+// Helper to get environment variables with a default value.
 func getEnv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
@@ -224,11 +231,13 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
+// Initializes everything once.
 func main() {
 	rootDir := getEnv("RENDERER_ROOT_DIR", "/var/www/renderer")
 	if err := godotenv.Load(path.Join(rootDir, ".env")); err != nil {
 		log.Println("Warning: .env file not found or could not be loaded.")
 	}
+
 	cfg := &Config{
 		PostKey:       os.Getenv("POST_KEY"),
 		ServerAddress: os.Getenv("SERVER_ADDRESS"),
@@ -257,19 +266,21 @@ func main() {
 		s3Uploader: s3.New(newSession),
 		cache:      NewAssetCache(),
 	}
+
 	http.HandleFunc("/", server.handleRender)
 
-	// Start the HTTP server
 	fmt.Printf("Starting server on %s\n", cfg.ServerAddress)
 	if err := http.ListenAndServe(cfg.ServerAddress, nil); err != nil {
 		log.Fatalf("HTTP server error: %v", err)
 	}
 }
 
+// --- NEW: Request Type Identifier ---
 type RenderRequestType struct {
 	RenderType string `json:"RenderType"`
 }
 
+// --- CHANGED: Central HTTP Handler ---
 func (s *Server) handleRender(w http.ResponseWriter, r *http.Request) {
 	if s.config.PostKey != "" && r.Header.Get("Aeo-Access-Key") != s.config.PostKey {
 		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
@@ -287,7 +298,7 @@ func (s *Server) handleRender(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
-	// Unmarshal just the type first to decide what to do.
+	// OPTIMIZATION: Unmarshal just the type first to decide what to do.
 	var reqType RenderRequestType
 	if err := json.Unmarshal(body, &reqType); err != nil {
 		http.Error(w, "Invalid request body: could not determine RenderType", http.StatusBadRequest)
@@ -322,6 +333,8 @@ func (s *Server) handleRender(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid RenderType specified", http.StatusBadRequest)
 	}
 }
+
+// --- NEW: CONCURRENT User Render Handler ---
 func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 	start := time.Now()
 	objects := s.generateObjects(e.RenderJson)
@@ -329,12 +342,10 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 	var wg sync.WaitGroup
 	wg.Add(2) // We are running two render jobs in parallel
 
-	// Goroutine for the full body render
 	go func() {
 		defer wg.Done()
 		outputKey := path.Join("thumbnails", e.Hash+".png")
 		
-        // OPTIMIZATION: Render directly to an in-memory buffer
 		var buffer bytes.Buffer
 		aeno.GenerateSceneToWriter( // Assuming the library has or can be adapted to have this function
 			&buffer,
@@ -346,7 +357,6 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 		s.uploadToS3(buffer.Bytes(), outputKey)
 	}()
 
-	// Goroutine for the headshot render
 	go func() {
 		defer wg.Done()
 		var (
@@ -356,7 +366,6 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 		)
 		outputKey := path.Join("thumbnails", e.Hash+"_headshot.png")
 
-        // OPTIMIZATION: Render directly to an in-memory buffer
 		var buffer bytes.Buffer
 		aeno.GenerateSceneToWriter(
 			&buffer,
@@ -368,13 +377,12 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 		s.uploadToS3(buffer.Bytes(), outputKey)
 	}()
 
-	wg.Wait() // Wait for both renders to complete
+	wg.Wait()
 	log.Printf("Completed user render for %s in %v", e.Hash, time.Since(start))
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintln(w, "User render and headshot processed successfully.")
 }
 
-// --- NEW: Unified Item Render Handler ---
 func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent, isPreview bool) {
 	start := time.Now()
 	var objects []*aeno.Object
@@ -414,6 +422,7 @@ func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent, isPreview 
 	fmt.Fprintln(w, "Item processed successfully.")
 }
 
+
 func (s *Server) uploadToS3(buffer []byte, key string) {
 	size := int64(len(buffer))
 
@@ -435,32 +444,23 @@ func (s *Server) uploadToS3(buffer []byte, key string) {
 
 func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
 	if itemData.Item == "none" {
-		return nil // No item to render for this slot
+		return nil
 	}
-
+	
 	cdnURL := s.config.CDNURL
 	meshURL := fmt.Sprintf("%s/uploads/%s.obj", cdnURL, itemData.Item)
 	textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, itemData.Item)
 
 	if itemData.EditStyle != nil {
 		if itemData.EditStyle.IsModel {
-			meshURL = fmt.Sprintf("%s/uploads/%s.obj", env("CDN_URL"), itemData.EditStyle.Hash)
-			log.Printf("DEBUG: Applying model override for item %s with style %s\n", itemData.Item, itemData.EditStyle.Hash)
+			meshURL = fmt.Sprintf("%s/uploads/%s.obj", cdnURL, itemData.EditStyle.Hash)
 		}
 		if itemData.EditStyle.IsTexture {
-			textureURL = fmt.Sprintf("%s/uploads/%s.png", env("CDN_URL"), itemData.EditStyle.Hash)
-			log.Printf("DEBUG: Applying texture override for item %s with style %s\n", itemData.Item, itemData.EditStyle.Hash)
+			textureURL = fmt.Sprintf("%s/uploads/%s.png", cdnURL, itemData.EditStyle.Hash)
 		}
 	}
 
-	var texture aeno.Texture
-	resp, err := http.Head(textureURL)
-	if err == nil && resp.StatusCode == http.StatusOK {
-		texture = aeno.LoadTextureFromURL(textureURL)
-	} else {
-		fmt.Printf("Info: No texture found for item at %s. Rendering with color only.\n", textureURL)
-	}
-
+	// OPTIMIZATION: Use the cache
 	return &aeno.Object{
 		Mesh:    s.cache.GetMesh(meshURL),
 		Color:   aeno.Transparent,
@@ -469,36 +469,30 @@ func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
 	}
 }
 
-func ToolClause(toolData ItemData, leftArmColor string, shirtTextureHash string) []*aeno.Object {
+func (s *Server) ToolClause(toolData ItemData, leftArmColor string, shirtTextureHash string) []*aeno.Object {
 	objects := []*aeno.Object{}
-	cdnUrl := env("CDN_URL")
+	cdnURL := s.config.CDNURL
 
 	var shirtTexture aeno.Texture
 	if shirtTextureHash != "none" {
-		textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnUrl, shirtTextureHash)
-		resp, err := http.Head(textureURL)
-		if err == nil && resp.StatusCode == http.StatusOK {
-			shirtTexture = aeno.LoadTextureFromURL(textureURL)
-		}
+		textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, shirtTextureHash)
+		shirtTexture = s.cache.GetTexture(textureURL)
 	}
 
 	var armMesh *aeno.Mesh
-
 	if toolData.Item != "none" {
-		armMesh = aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/arm_tool.obj", cdnUrl))
-
-		if toolObj := RenderItem(toolData); toolObj != nil {
+		armMesh = s.cache.GetMesh(fmt.Sprintf("%s/assets/arm_tool.obj", cdnURL))
+		if toolObj := s.RenderItem(toolData); toolObj != nil {
 			objects = append(objects, toolObj)
 		}
 	} else {
-		// If no tool is equipped, use the default arm mesh.
-		armMesh = aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/arm_left.obj", cdnUrl))
+		armMesh = s.cache.GetMesh(fmt.Sprintf("%s/assets/arm_left.obj", cdnURL))
 	}
 
 	armObject := &aeno.Object{
 		Mesh:    armMesh,
 		Color:   aeno.HexColor(leftArmColor),
-		Texture: shirtTexture, 
+		Texture: shirtTexture,
 		Matrix:  aeno.Identity(),
 	}
 	objects = append(objects, armObject)
@@ -506,13 +500,11 @@ func ToolClause(toolData ItemData, leftArmColor string, shirtTextureHash string)
 	return objects
 }
 
-func generateObjects(userConfig UserConfig) []*aeno.Object {
-	fmt.Printf("generateObjects: Starting. UserConfig: %+v\n", userConfig)
-
+func (s *Server) generateObjects(userConfig UserConfig) []*aeno.Object {
 	var allObjects []*aeno.Object
-	cdnURL := env("CDN_URL")
-
-	// --- DYNAMICALLY LOAD HEAD MESH ---
+	
+	cdnURL := s.config.CDNURL 
+	
 	headMeshName := userConfig.BodyParts.Head
 	if headMeshName == "" {
 		headMeshName = "cranium"
@@ -524,61 +516,43 @@ func generateObjects(userConfig UserConfig) []*aeno.Object {
 	} else {
 		headMeshPath = fmt.Sprintf("%s/uploads/%s.obj", cdnURL, headMeshName)
 	}
-	cachedCraniumMesh := aeno.LoadObjectFromURL(headMeshPath)
 
-	fmt.Printf("generateObjects: Cached Head Mesh Pointer: %p\n", cachedCraniumMesh)
+	headMesh := s.cache.GetMesh(headMeshPath)
 
-	bodyAndApparelObjects := Texturize(userConfig)
+	bodyAndApparelObjects := s.Texturize(userConfig)
 	allObjects = append(allObjects, bodyAndApparelObjects...)
 
-	allObjects = append(allObjects, &aeno.Object{
-		Mesh:   cachedCraniumMesh,
+	headObject := &aeno.Object{
+		Mesh:   headMesh,
 		Color:  aeno.HexColor(userConfig.Colors["Head"]),
 		Matrix: aeno.Identity(),
-	})
-
-	fmt.Printf("generateObjects: Cranium mesh added. Total objects: %d\n", len(allObjects))
-
-	fmt.Printf("generateObjects: Applying Face. Face Item: %s\n", userConfig.Items.Face.Item)
-	for _, obj := range allObjects {
-		if obj.Mesh != nil {
-			fmt.Printf("  generateObjects: Checking obj mesh %p against cached cranium mesh %p for face texture application.\n", obj.Mesh, cachedCraniumMesh)
-        	if obj.Mesh == cachedCraniumMesh {
-				fmt.Printf("  generateObjects: FOUND cranium mesh for face! Applying face texture.\n")
-				obj.Texture = AddFace(userConfig.Items.Face.Item)
-				break
-			}
-		}
 	}
 
-	fmt.Printf("generateObjects: Processing Addon. Addon Item: %s\n", userConfig.Items.Addon.Item)
-	if obj := RenderItem(userConfig.Items.Addon); obj != nil {
+	headObject.Texture = s.AddFace(userConfig.Items.Face.Item)
+	allObjects = append(allObjects, headObject)
+
+	if obj := s.RenderItem(userConfig.Items.Addon); obj != nil {
 		allObjects = append(allObjects, obj)
-		fmt.Printf("generateObjects: Addon object added. Total objects: %d\n", len(allObjects))
 	}
 
-	fmt.Printf("generateObjects: Processing Hats. Count: %d\n", len(userConfig.Items.Hats))
 	for hatKey, hatItemData := range userConfig.Items.Hats {
 		if !hatKeyPattern.MatchString(hatKey) {
 			log.Printf("Warning: Invalid hat key format: '%s'. Skipping hat.\n", hatKey)
 			continue
 		}
-
-		fmt.Printf("  Hat Key: %s, Item: %s\n", hatKey, hatItemData.Item)
 		if hatItemData.Item != "none" {
-			if obj := RenderItem(hatItemData); obj != nil {
+			if obj := s.RenderItem(hatItemData); obj != nil {
 				allObjects = append(allObjects, obj)
-				fmt.Printf("Hat object for %s added. Total objects: %d\n", hatKey, len(allObjects))
 			}
 		}
 	}
-	fmt.Printf("generateObjects: Finished. Final object count: %d\n", len(allObjects))
+
 	return allObjects
 }
 
-func Texturize(config UserConfig) []*aeno.Object {
+func (s *Server) Texturize(config UserConfig) []*aeno.Object {
 	objects := []*aeno.Object{}
-	cdnUrl := env("CDN_URL")
+	cdnURL := s.config.CDNURL 
 
 	// Helper function to build the correct path
 	getMeshPath := func(partName, defaultName string) string {
@@ -586,165 +560,69 @@ func Texturize(config UserConfig) []*aeno.Object {
 			partName = defaultName
 		}
 		if partName == defaultName {
-			return fmt.Sprintf("%s/assets/%s.obj", cdnUrl, partName)
+			return fmt.Sprintf("%s/assets/%s.obj", cdnURL, partName)
 		}
-		return fmt.Sprintf("%s/uploads/%s.obj", cdnUrl, partName)
+		return fmt.Sprintf("%s/uploads/%s.obj", cdnURL, partName)
 	}
 
-	// --- CACHED MESH REFERENCES FOR TEXTURIZE'S INTERNAL USE ---
-	// These are loaded once within Texturize to ensure consistent pointers for its internal slice indexing.
-	torsoPath := getMeshPath(config.BodyParts.Torso, "chesticle")
-	rightArmPath := getMeshPath(config.BodyParts.RightArm, "arm_right")
-	leftLegPath := getMeshPath(config.BodyParts.LeftLeg, "leg_left")
-	rightLegPath := getMeshPath(config.BodyParts.RightLeg, "leg_right")
+	// Use the cache for all body part meshes
+	torsoMesh := s.cache.GetMesh(getMeshPath(config.BodyParts.Torso, "chesticle"))
+	rightArmMesh := s.cache.GetMesh(getMeshPath(config.BodyParts.RightArm, "arm_right"))
+	leftLegMesh := s.cache.GetMesh(getMeshPath(config.BodyParts.LeftLeg, "leg_left"))
+	rightLegMesh := s.cache.GetMesh(getMeshPath(config.BodyParts.RightLeg, "leg_right"))
+	teeMesh := s.cache.GetMesh(fmt.Sprintf("%s/assets/tee.obj", cdnURL))
 
-	cachedChesticleMesh := aeno.LoadObjectFromURL(torsoPath)
-	cachedArmRightMesh := aeno.LoadObjectFromURL(rightArmPath)
-	cachedLegLeftMesh := aeno.LoadObjectFromURL(leftLegPath)
-	cachedLegRightMesh := aeno.LoadObjectFromURL(rightLegPath)
-	cachedTeeMesh := aeno.LoadObjectFromURL(fmt.Sprintf("%s/assets/tee.obj", cdnUrl))
+	torsoObj := &aeno.Object{Mesh: torsoMesh, Color: aeno.HexColor(config.Colors["Torso"]), Matrix: aeno.Identity()}
+	rightArmObj := &aeno.Object{Mesh: rightArmMesh, Color: aeno.HexColor(config.Colors["RightArm"]), Matrix: aeno.Identity()}
+	leftLegObj := &aeno.Object{Mesh: leftLegMesh, Color: aeno.HexColor(config.Colors["LeftLeg"]), Matrix: aeno.Identity()}
+	rightLegObj := &aeno.Object{Mesh: rightLegMesh, Color: aeno.HexColor(config.Colors["RightLeg"]), Matrix: aeno.Identity()}
+	
+	objects = append(objects, torsoObj, rightArmObj, leftLegObj, rightLegObj)
 
-	objects = append(objects, &aeno.Object{
-		Mesh:   cachedChesticleMesh,
-		Color:  aeno.HexColor(config.Colors["Torso"]),
-		Matrix: aeno.Identity(),
-	})
-
-	fmt.Printf("Texturize: Added Chesticle Mesh Pointer: %p\n", cachedChesticleMesh)
-
-	objects = append(objects, &aeno.Object{
-		Mesh:   cachedArmRightMesh,
-		Color:  aeno.HexColor(config.Colors["RightArm"]),
-		Matrix: aeno.Identity(),
-	})
-	fmt.Printf("Texturize: Added Right Arm Mesh Pointer: %p\n", cachedArmRightMesh)
-
-	objects = append(objects,
-		&aeno.Object{
-			Mesh:   cachedLegLeftMesh,
-			Color:  aeno.HexColor(config.Colors["LeftLeg"]),
-			Matrix: aeno.Identity(),
-		},
-		&aeno.Object{
-			Mesh:   cachedLegRightMesh,
-			Color:  aeno.HexColor(config.Colors["RightLeg"]),
-			Matrix: aeno.Identity(),
-		},
-	)
-	fmt.Printf("Texturize: Added Left Leg Mesh Pointer: %p\n", cachedLegLeftMesh)
-	fmt.Printf("Texturize: Added Right Leg Mesh Pointer: %p\n", cachedLegRightMesh)
-
-	fmt.Println("Texturize: Initial body meshes created in order for slicing:")
-	for i, obj := range objects {
-		if obj.Mesh != nil {
-			fmt.Printf("  Texturize Index %d: Mesh Pointer %p\n", i, obj.Mesh)
-		}
-	}
-
-	fmt.Printf("Texturize: Processing Shirt. Shirt Item: %s\n", config.Items.Shirt.Item)
 	if config.Items.Shirt.Item != "none" {
-		shirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnUrl, config.Items.Shirt.Item)
-		fmt.Printf("Texturize: Loading shirt texture from URL: %s\n", shirtTextureURL)
-		shirtTexture := aeno.LoadTextureFromURL(shirtTextureURL)
-
-		fmt.Printf("Texturize: Shirt texture loaded. Applying to objects[0:2] (torso, right arm).\n")
-		for _, obj := range objects[0:2] {
-			fmt.Printf("  Texturize: Applying shirt texture to mesh %p\n", obj.Mesh)
-			obj.Texture = shirtTexture
-		}
+		shirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, config.Items.Shirt.Item)
+		shirtTexture := s.cache.GetTexture(shirtTextureURL)
+		torsoObj.Texture = shirtTexture
+		rightArmObj.Texture = shirtTexture
 	}
 
-	fmt.Printf("Texturize: Processing Pants. Pants Item: %s\n", config.Items.Pants.Item)
 	if config.Items.Pants.Item != "none" {
-		pantsTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnUrl, config.Items.Pants.Item)
-		fmt.Printf("Texturize: Loading pants texture from URL: %s\n", pantsTextureURL)
-		pantsTexture := aeno.LoadTextureFromURL(pantsTextureURL)
-
-		fmt.Printf("Texturize: Pants texture loaded. Applying to objects[2:] (legs).\n")
-		for _, obj := range objects[2:] {
-			fmt.Printf("Texturize: Applying pants texture to mesh %p\n", obj.Mesh)
-			obj.Texture = pantsTexture
-		}
+		pantsTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, config.Items.Pants.Item)
+		pantsTexture := s.cache.GetTexture(pantsTextureURL)
+		leftLegObj.Texture = pantsTexture
+		rightLegObj.Texture = pantsTexture
 	}
 
-	fmt.Printf("Texturize: Processing T-shirt. T-shirt Item: %s\n", config.Items.Tshirt.Item)
 	if config.Items.Tshirt.Item != "none" {
-		tshirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnUrl, config.Items.Tshirt.Item)
-		fmt.Printf("Texturize: Loading T-shirt texture from URL: %s\n", tshirtTextureURL)
-		tshirtTexture := aeno.LoadTextureFromURL(tshirtTextureURL)
-
-		fmt.Printf("Texturize: T-shirt texture loaded. Adding as new object.\n")
+		tshirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, config.Items.Tshirt.Item)
+		tshirtTexture := s.cache.GetTexture(tshirtTextureURL)
 		TshirtLoader := &aeno.Object{
-			Mesh:    cachedTeeMesh,
+			Mesh:    teeMesh,
 			Color:   aeno.Transparent,
 			Texture: tshirtTexture,
 			Matrix:  aeno.Identity(),
 		}
 		objects = append(objects, TshirtLoader)
-		fmt.Printf("Texturize: T-shirt object added. Total objects: %d\n", len(objects))
 	}
 
-	fmt.Printf("Texturize: Processing Tool. Tool Item: %s\n", config.Items.Tool.Item)
-	armObjects := ToolClause(
+	armObjects := s.ToolClause(
 		config.Items.Tool,
 		config.Colors["LeftArm"],
 		config.Items.Shirt.Item,
 	)
 	objects = append(objects, armObjects...)
-	fmt.Printf("Texturize: Tool/Arm objects added. Total objects: %d\n", len(objects))
 
 	return objects
 }
 
-// --- Adapted generatePreview Function ---
-func generatePreview(itemConfig ItemConfig) []*aeno.Object {
-	fmt.Printf("generatePreview: Starting for ItemType: %s, Item: %+v\n", itemConfig.ItemType, itemConfig.Item)
-
-	previewConfig := useDefault
-
-	itemType := itemConfig.ItemType
-	itemData := itemConfig.Item
-
-	switch itemType {
-	case "face":
-		previewConfig.Items.Face = itemData
-	case "hat":
-		previewConfig.Items.Hats = make(HatsCollection)
-		previewConfig.Items.Hats["hat_1"] = itemData
-	case "addon":
-		previewConfig.Items.Addon = itemData
-	case "tool":
-		previewConfig.Items.Tool = itemData
-	case "pants":
-		previewConfig.Items.Pants = itemData
-	case "shirt":
-		previewConfig.Items.Shirt = itemData
-	case "tshirt":
-		previewConfig.Items.Tshirt = itemData
-	case "head":
-		if itemData.Item != "none" {
-			previewConfig.BodyParts.Head = itemData.Item
-		}
-	default:
-		fmt.Printf("generatePreview: Unhandled item type '%s'. Showing default avatar.\n", itemType)
-	}
-	return generateObjects(previewConfig)
-}
-
-func AddFace(faceHash string) aeno.Texture {
-	var face aeno.Texture
-
+// AddFace needs to be a method to access the server cache.
+func (s *Server) AddFace(faceHash string) aeno.Texture {
 	faceURL := ""
-	if faceHash != "none" {
-		faceURL = fmt.Sprintf("%s/uploads/%s.png", env("CDN_URL"), faceHash)
+	if faceHash != "none" && faceHash != "" {
+		faceURL = fmt.Sprintf("%s/uploads/%s.png", s.config.CDNURL, faceHash)
 	} else {
-		faceURL = fmt.Sprintf("%s/assets/default.png", env("CDN_URL"))
+		faceURL = fmt.Sprintf("%s/assets/default.png", s.config.CDNURL)
 	}
-
-	fmt.Printf("AddFace: Loading face texture from URL: %s\n", faceURL)
-	face = aeno.LoadTextureFromURL(faceURL)
-
-	fmt.Printf("AddFace: Loaded texture for %s. (No nil check possible for value type)\n", faceURL)
-
-	return face
+	// Use the cache
+	return s.cache.GetTexture(faceURL)
 }
