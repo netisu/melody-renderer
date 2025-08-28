@@ -614,6 +614,39 @@ func (s *Server) Texturize(config UserConfig) []*aeno.Object {
 
 	return objects
 }
+func (s *Server) generatePreview(conifg ItemConfig) []*aeno.Object {
+	fmt.Printf("generatePreview: Starting for ItemType: %s, Item: %+v\n", conifg.ItemType, conifg.Item)
+
+	previewConfig := useDefault
+
+	itemType := itemConfig.ItemType
+	itemData := itemConfig.Item
+
+	switch itemType {
+	case "face":
+		previewConfig.Items.Face = conifg
+	case "hat":
+		previewConfig.Items.Hats = make(HatsCollection)
+		previewConfig.Items.Hats["hat_1"] = conifg
+	case "addon":
+		previewConfig.Items.Addon = conifg
+	case "tool":
+		previewConfig.Items.Tool = conifg
+	case "pants":
+		previewConfig.Items.Pants = conifg
+	case "shirt":
+		previewConfig.Items.Shirt = conifg
+	case "tshirt":
+		previewConfig.Items.Tshirt = conifg
+	case "head":
+		if itemData.Item != "none" {
+			previewConfig.BodyParts.Head = conifg.Item
+		}
+	default:
+		fmt.Printf("generatePreview: Unhandled item type '%s'. Showing default avatar.\n", conifg)
+	}
+	return s.generateObjects(previewConfig)
+}
 
 // AddFace needs to be a method to access the server cache.
 func (s *Server) AddFace(faceHash string) aeno.Texture {
