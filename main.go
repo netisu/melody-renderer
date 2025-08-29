@@ -464,7 +464,7 @@ func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
 	
 	// OPTIMIZATION: Use the cache
 	return &aeno.Object{
-		Mesh:    finalMesh.Clone(),
+		Mesh:    finalMesh.Copy(),
 		Color:   aeno.Transparent,
 		Texture: s.cache.GetTexture(textureURL),
 		Matrix:  aeno.Identity(),
@@ -492,7 +492,7 @@ func (s *Server) ToolClause(toolData ItemData, leftArmColor string, shirtTexture
 	}
 
 	armObject := &aeno.Object{
-		Mesh:    armMesh.Clone(),
+		Mesh:    armMesh.Copy(),
 		Color:   aeno.HexColor(leftArmColor),
 		Texture: shirtTexture,
 		Matrix:  aeno.Identity(),
@@ -525,7 +525,7 @@ func (s *Server) generateObjects(userConfig UserConfig) []*aeno.Object {
 	allObjects = append(allObjects, bodyAndApparelObjects...)
 
 	headObject := &aeno.Object{
-		Mesh:   headMesh.Clone(),
+		Mesh:   headMesh.Copy(),
 		Color:  aeno.HexColor(userConfig.Colors["Head"]),
 		Matrix: aeno.Identity(),
 	}
@@ -574,10 +574,10 @@ func (s *Server) Texturize(config UserConfig) []*aeno.Object {
 	rightLegMesh := s.cache.GetMesh(getMeshPath(config.BodyParts.RightLeg, "leg_right"))
 	teeMesh := s.cache.GetMesh(fmt.Sprintf("%s/assets/tee.obj", cdnURL))
 
-	torsoObj := &aeno.Object{Mesh: torsoMesh.Clone(), Color: aeno.HexColor(config.Colors["Torso"]), Matrix: aeno.Identity()}
-	rightArmObj := &aeno.Object{Mesh: rightArmMesh.Clone(), Color: aeno.HexColor(config.Colors["RightArm"]), Matrix: aeno.Identity()}
-	leftLegObj := &aeno.Object{Mesh: leftLegMesh.Clone(), Color: aeno.HexColor(config.Colors["LeftLeg"]), Matrix: aeno.Identity()}
-	rightLegObj := &aeno.Object{Mesh: rightLegMesh.Clone(), Color: aeno.HexColor(config.Colors["RightLeg"]), Matrix: aeno.Identity()}
+	torsoObj := &aeno.Object{Mesh: torsoMesh.Copy(), Color: aeno.HexColor(config.Colors["Torso"]), Matrix: aeno.Identity()}
+	rightArmObj := &aeno.Object{Mesh: rightArmMesh.Copy(), Color: aeno.HexColor(config.Colors["RightArm"]), Matrix: aeno.Identity()}
+	leftLegObj := &aeno.Object{Mesh: leftLegMesh.Copy(), Color: aeno.HexColor(config.Colors["LeftLeg"]), Matrix: aeno.Identity()}
+	rightLegObj := &aeno.Object{Mesh: rightLegMesh.Copy(), Color: aeno.HexColor(config.Colors["RightLeg"]), Matrix: aeno.Identity()}
 	
 	objects = append(objects, torsoObj, rightArmObj, leftLegObj, rightLegObj)
 
@@ -599,7 +599,7 @@ func (s *Server) Texturize(config UserConfig) []*aeno.Object {
 		tshirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, config.Items.Tshirt.Item)
 		tshirtTexture := s.cache.GetTexture(tshirtTextureURL)
 		TshirtLoader := &aeno.Object{
-			Mesh:    teeMesh.Clone(),
+			Mesh:    teeMesh.Copy(),
 			Color:   aeno.Transparent,
 			Texture: tshirtTexture,
 			Matrix:  aeno.Identity(),
