@@ -322,10 +322,10 @@ func (s *Server) handleRender(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.handleItemRender(w, i, false) // isPreview = false
-	case "item_preview":
+	case "item_preview", "style":
 		var i ItemEvent
 		if err := json.Unmarshal(body, &i); err != nil {
-			http.Error(w, "Invalid request body for type 'item_preview'", http.StatusBadRequest)
+            http.Error(w, "Invalid request body for type 'item_preview' or 'style'", http.StatusBadRequest)
 			return
 		}
 		s.handleItemRender(w, i, true) // isPreview = true
