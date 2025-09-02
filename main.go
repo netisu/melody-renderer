@@ -216,6 +216,13 @@ func (c *AssetCache) GetTexture(url string) aeno.Texture {
 	return nil
 }
 
+func getTextureHash(itemData ItemData) string {
+	if itemData.EditStyle != nil && itemData.EditStyle.IsTexture {
+		return itemData.EditStyle.Hash
+	}
+	return itemData.Item
+}
+
 // Holds shared dependencies like config, S3 client, and cache.
 type Server struct {
 	config     *Config
@@ -471,13 +478,14 @@ func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
 	}
 }
 
-func (s *Server) ToolClause(toolData ItemData, leftArmColor string, shirtTextureHash string) []*aeno.Object {
+func (s *Server) ToolClause(toolData ItemData, leftArmColor string, shirtData ItemData) []*aeno.Object {
 	objects := []*aeno.Object{}
 	cdnURL := s.config.CDNURL
 
 	var shirtTexture aeno.Texture
-	if shirtTextureHash != "none" {
-		textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, shirtTextureHash)
+	if shirtData.Item != "none" {
+		shirtHash := getTextureHash(shirtData)
+		textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, shirtHash)
 		shirtTexture = s.cache.GetTexture(textureURL)
 	}
 
@@ -583,21 +591,21 @@ func (s *Server) Texturize(config UserConfig) []*aeno.Object {
 
 	if config.Items.Shirt.Item != "none" {
 		shirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, config.Items.Shirt.Item)
-		shirtTexture := s.cache.GetTexture(shirtTextureURL)
+		shirtTexture := getTextureHash(config.Items.Shirt)
 		torsoObj.Texture = shirtTexture
 		rightArmObj.Texture = shirtTexture
 	}
 
 	if config.Items.Pants.Item != "none" {
 		pantsTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, config.Items.Pants.Item)
-		pantsTexture := s.cache.GetTexture(pantsTextureURL)
+		pantsTexture := getTextureHash(config.Items.Pants)
 		leftLegObj.Texture = pantsTexture
 		rightLegObj.Texture = pantsTexture
 	}
 
 	if config.Items.Tshirt.Item != "none" {
 		tshirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, config.Items.Tshirt.Item)
-		tshirtTexture := s.cache.GetTexture(tshirtTextureURL)
+		tshirtTexture := getTextureHash(config.Items.Tshirt)
 		TshirtLoader := &aeno.Object{
 			Mesh:    teeMesh.Copy(),
 			Color:   aeno.Transparent,
@@ -610,7 +618,7 @@ func (s *Server) Texturize(config UserConfig) []*aeno.Object {
 	armObjects := s.ToolClause(
 		config.Items.Tool,
 		config.Colors["LeftArm"],
-		config.Items.Shirt.Item,
+		config.Items.Shirt,
 	)
 	objects = append(objects, armObjects...)
 
