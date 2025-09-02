@@ -538,6 +538,7 @@ func (s *Server) generateObjects(userConfig UserConfig) []*aeno.Object {
 		Matrix: aeno.Identity(),
 	}
 
+	
 	headObject.Texture = s.AddFace(userConfig.Items.Face.Item)
 	allObjects = append(allObjects, headObject)
 
@@ -660,14 +661,16 @@ func (s *Server) generatePreview(config ItemConfig) []*aeno.Object {
 	return s.generateObjects(previewConfig)
 }
 
-// AddFace needs to be a method to access the server cache.
-func (s *Server) AddFace(faceHash string) aeno.Texture {
+func (s *Server) AddFace(faceData ItemData) aeno.Texture {
 	faceURL := ""
-	if faceHash != "none" && faceHash != "" {
+
+	if faceData.Item != "none" && faceData.Item != "" {
+		faceHash := getTextureHash(faceData)
 		faceURL = fmt.Sprintf("%s/uploads/%s.png", s.config.CDNURL, faceHash)
 	} else {
 		faceURL = fmt.Sprintf("%s/assets/default.png", s.config.CDNURL)
 	}
-	// Use the cache
+
+	// Use the cache to load and return the texture.
 	return s.cache.GetTexture(faceURL)
 }
