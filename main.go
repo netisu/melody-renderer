@@ -539,7 +539,7 @@ func (s *Server) generateObjects(userConfig UserConfig) []*aeno.Object {
 	}
 
 	
-	headObject.Texture = s.AddFace(userConfig.Items.Face.Item)
+	headObject.Texture = s.AddFace(userConfig.Items.Face)
 	allObjects = append(allObjects, headObject)
 
 	if obj := s.RenderItem(userConfig.Items.Addon); obj != nil {
