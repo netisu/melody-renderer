@@ -589,23 +589,26 @@ func (s *Server) Texturize(config UserConfig) []*aeno.Object {
 	
 	objects = append(objects, torsoObj, rightArmObj, leftLegObj, rightLegObj)
 
-	if config.Items.Shirt.Item != "none" {
-		shirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, config.Items.Shirt.Item)
-		shirtTexture := getTextureHash(config.Items.Shirt)
+if config.Items.Shirt.Item != "none" {
+		shirtHash := getTextureHash(config.Items.Shirt)
+		shirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, shirtHash)
+		shirtTexture := s.cache.GetTexture(shirtTextureURL)
 		torsoObj.Texture = shirtTexture
 		rightArmObj.Texture = shirtTexture
 	}
 
 	if config.Items.Pants.Item != "none" {
-		pantsTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, config.Items.Pants.Item)
-		pantsTexture := getTextureHash(config.Items.Pants)
+		pantsHash := getTextureHash(config.Items.Pants)
+		pantsTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, pantsHash)
+		pantsTexture := s.cache.GetTexture(pantsTextureURL)
 		leftLegObj.Texture = pantsTexture
 		rightLegObj.Texture = pantsTexture
 	}
 
 	if config.Items.Tshirt.Item != "none" {
-		tshirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, config.Items.Tshirt.Item)
-		tshirtTexture := getTextureHash(config.Items.Tshirt)
+		tshirtHash := getTextureHash(config.Items.Tshirt)
+		tshirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, tshirtHash)
+		tshirtTexture := s.cache.GetTexture(tshirtTextureURL)
 		TshirtLoader := &aeno.Object{
 			Mesh:    teeMesh.Copy(),
 			Color:   aeno.Transparent,
@@ -614,7 +617,6 @@ func (s *Server) Texturize(config UserConfig) []*aeno.Object {
 		}
 		objects = append(objects, TshirtLoader)
 	}
-
 	armObjects := s.ToolClause(
 		config.Items.Tool,
 		config.Colors["LeftArm"],
