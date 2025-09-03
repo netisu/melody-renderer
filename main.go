@@ -631,7 +631,7 @@ func (s *Server) Texturize(userConfig UserConfig, config RenderConfig) []*aeno.O
 	objects = append(objects, armObjects...)
 	return objects
 }
-func (s *Server) generatePreview(config ItemConfig, config RenderConfig) []*aeno.Object {
+func (s *Server) generatePreview(config ItemConfig, renderConfig RenderConfig) []*aeno.Object {
 	fmt.Printf("generatePreview: Starting for ItemType: %s, Item: %+v\n", config.ItemType, config.Item)
 
 	previewConfig := useDefault
@@ -662,7 +662,7 @@ func (s *Server) generatePreview(config ItemConfig, config RenderConfig) []*aeno
 	default:
 		fmt.Printf("generatePreview: Unhandled item type '%s'. Showing default avatar.\n", config.ItemType)
 	}
-	return s.generateObjects(previewConfig, config)
+	return s.generateObjects(previewConfig, renderConfig)
 }
 
 func (s *Server) AddFace(faceData ItemData) aeno.Texture {
