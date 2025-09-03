@@ -593,7 +593,7 @@ func (s *Server) Texturize(userConfig UserConfig, config RenderConfig) []*aeno.O
 	
 	objects = append(objects, torsoObj, rightArmObj, leftLegObj, rightLegObj)
 
-if config.Items.Shirt.Item != "none" {
+	if userConfig.Items.Shirt.Item != "none" {
 		shirtHash := getTextureHash(userConfig.Items.Shirt)
 		shirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, shirtHash)
 		shirtTexture := s.cache.GetTexture(shirtTextureURL)
@@ -601,7 +601,7 @@ if config.Items.Shirt.Item != "none" {
 		rightArmObj.Texture = shirtTexture
 	}
 
-	if config.Items.Pants.Item != "none" {
+	if userConfig.Items.Pants.Item != "none" {
 		pantsHash := getTextureHash(userConfig.Items.Pants)
 		pantsTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, pantsHash)
 		pantsTexture := s.cache.GetTexture(pantsTextureURL)
@@ -609,7 +609,7 @@ if config.Items.Shirt.Item != "none" {
 		rightLegObj.Texture = pantsTexture
 	}
 
-	if config.Items.Tshirt.Item != "none" {
+	if userConfig.Items.Tshirt.Item != "none" {
 		tshirtHash := getTextureHash(userConfig.Items.Tshirt)
 		tshirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, tshirtHash)
 		tshirtTexture := s.cache.GetTexture(tshirtTextureURL)
@@ -631,7 +631,7 @@ if config.Items.Shirt.Item != "none" {
 	objects = append(objects, armObjects...)
 	return objects
 }
-func (s *Server) generatePreview(config ItemConfig) []*aeno.Object {
+func (s *Server) generatePreview(config ItemConfig, config RenderConfig) []*aeno.Object {
 	fmt.Printf("generatePreview: Starting for ItemType: %s, Item: %+v\n", config.ItemType, config.Item)
 
 	previewConfig := useDefault
@@ -662,7 +662,7 @@ func (s *Server) generatePreview(config ItemConfig) []*aeno.Object {
 	default:
 		fmt.Printf("generatePreview: Unhandled item type '%s'. Showing default avatar.\n", config.ItemType)
 	}
-	return s.generateObjects(previewConfig)
+	return s.generateObjects(previewConfig, config)
 }
 
 func (s *Server) AddFace(faceData ItemData) aeno.Texture {
