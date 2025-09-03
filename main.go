@@ -486,14 +486,14 @@ func (s *Server) ToolClause(toolData ItemData, leftArmColor string, shirtData It
 	cdnURL := s.config.CDNURL
 
 	var shirtTexture aeno.Texture
-	if config.IncludeTool && shirtData.Item != "none" {
+	if shirtData.Item != "none" {
 		shirtHash := getTextureHash(shirtData)
 		textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, shirtHash)
 		shirtTexture = s.cache.GetTexture(textureURL)
 	}
 
 	var armMesh *aeno.Mesh
-	if toolData.Item != "none" {
+	if config.IncludeTool && toolData.Item != "none" {
 		armMesh = s.cache.GetMesh(fmt.Sprintf("%s/assets/arm_tool.obj", cdnURL))
 		if toolObj := s.RenderItem(toolData); toolObj != nil {
 			objects = append(objects, toolObj)
