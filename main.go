@@ -399,7 +399,7 @@ func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent, isPreview 
 	var outputKey string
 	
 	if isPreview {
-		objects = s.generatePreview(i.RenderJson)
+		objects = s.generatePreview(i.RenderJson, RenderConfig{IncludeTool: true})
 		if i.RenderJson.PathMod {
 			outputKey = path.Join("thumbnails", i.Hash+"_preview.png")
 		} else {
