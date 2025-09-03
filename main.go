@@ -22,7 +22,6 @@ import (
 )
 
 // --- Constants and Global Variables ---
-// (Structs like ItemData, BodyParts, etc. remain unchanged from your original code)
 const (
 	scale      = 1
 	fovy       = 22.5
@@ -140,7 +139,6 @@ var useDefault UserConfig = UserConfig{
 // hatKeyPattern is a regular expression to match keys like "hat_1", "hat_123", etc.
 var hatKeyPattern = regexp.MustCompile(`^hat_\d+$`)
 
-
 // Holds all environment variables, loaded once at startup.
 type Config struct {
 	PostKey       string
@@ -188,6 +186,25 @@ func (c *AssetCache) GetMesh(url string) *aeno.Mesh {
 	mesh = aeno.LoadObjectFromURL(url)
 	c.meshes[url] = mesh
 	return mesh
+}
+// This Clones a Set of objects.
+func cloneObjects(original []*aeno.Object) []*aeno.Object {
+	newCopy := make([]*aeno.Object, len(original))
+	for i, obj := range original {
+		if obj == nil {
+			continue
+		}
+		newObj := &aeno.Object{
+			Color:   obj.Color,
+			Texture: obj.Texture,
+			Matrix:  obj.Matrix,
+		}
+		if obj.Mesh != nil {
+			newObj.Mesh = obj.Mesh.Copy()
+		}
+		newCopy[i] = newObj
+	}
+	return newCopy
 }
 
 // GetTexture fetches a texture from the cache or loads it from the URL if not present.
@@ -344,19 +361,20 @@ func (s *Server) handleRender(w http.ResponseWriter, r *http.Request) {
 // --- NEW: CONCURRENT User Render Handler ---
 func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 	start := time.Now()
-	objects := s.generateObjects(e.RenderJson)
+	originalObjects := s.generateObjects(e.RenderJson)
 
 	var wg sync.WaitGroup
 	wg.Add(2) // We are running two render jobs in parallel
 
 	go func() {
 		defer wg.Done()
+		objectsForFullBody := originalObjects
 		outputKey := path.Join("thumbnails", e.Hash+".png")
 		
 		var buffer bytes.Buffer
 		aeno.GenerateSceneToWriter( // Assuming the library has or can be adapted to have this function
 			&buffer,
-			objects,
+			objectsForFullBody,
 			eye, center, up, fovy,
 			Dimentions, scale, light, amb, lightcolor, near, far, true, // Pass transparentBG flag
 		)
@@ -371,12 +389,13 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 			headshot_center = aeno.V(-0.5, 6.8, 0)
 			headshot_up     = aeno.V(0, 4, 0)
 		)
+		objectsForHeadshot := cloneObjects(originalObjects)
 		outputKey := path.Join("thumbnails", e.Hash+"_headshot.png")
 
 		var buffer bytes.Buffer
 		aeno.GenerateSceneToWriter(
 			&buffer,
-			objects,
+			objectsForHeadshot,
 			headshot_eye, headshot_center, headshot_up, fovy,
 			Dimentions, scale, light, amb, lightcolor, near, far, false,
 		)
