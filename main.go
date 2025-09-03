@@ -152,6 +152,11 @@ type Config struct {
 	RootDir       string
 }
 
+// For headshots or any other place where we need it.
+type RenderConfig struct {
+    IncludeTool bool
+}
+
 // --- NEW: Asset Cache ---
 // A thread-safe cache for meshes and textures to avoid redundant downloads.
 type AssetCache struct {
@@ -186,25 +191,6 @@ func (c *AssetCache) GetMesh(url string) *aeno.Mesh {
 	mesh = aeno.LoadObjectFromURL(url)
 	c.meshes[url] = mesh
 	return mesh
-}
-// This Clones a Set of objects.
-func cloneObjects(original []*aeno.Object) []*aeno.Object {
-	newCopy := make([]*aeno.Object, len(original))
-	for i, obj := range original {
-		if obj == nil {
-			continue
-		}
-		newObj := &aeno.Object{
-			Color:   obj.Color,
-			Texture: obj.Texture,
-			Matrix:  obj.Matrix,
-		}
-		if obj.Mesh != nil {
-			newObj.Mesh = obj.Mesh.Copy()
-		}
-		newCopy[i] = newObj
-	}
-	return newCopy
 }
 
 // GetTexture fetches a texture from the cache or loads it from the URL if not present.
@@ -361,20 +347,18 @@ func (s *Server) handleRender(w http.ResponseWriter, r *http.Request) {
 // --- NEW: CONCURRENT User Render Handler ---
 func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 	start := time.Now()
-	originalObjects := s.generateObjects(e.RenderJson)
-
 	var wg sync.WaitGroup
 	wg.Add(2) // We are running two render jobs in parallel
 
 	go func() {
 		defer wg.Done()
-		objectsForFullBody := originalObjects
+		objects := s.generateObjects(e.RenderJson, RenderConfig{IncludeTool: true})
 		outputKey := path.Join("thumbnails", e.Hash+".png")
 		
 		var buffer bytes.Buffer
 		aeno.GenerateSceneToWriter( // Assuming the library has or can be adapted to have this function
 			&buffer,
-			objectsForFullBody,
+			objects,
 			eye, center, up, fovy,
 			Dimentions, scale, light, amb, lightcolor, near, far, true, // Pass transparentBG flag
 		)
@@ -389,13 +373,13 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 			headshot_center = aeno.V(-0.5, 6.8, 0)
 			headshot_up     = aeno.V(0, 4, 0)
 		)
-		objectsForHeadshot := cloneObjects(originalObjects)
+		objects := s.generateObjects(e.RenderJson, RenderConfig{IncludeTool: false})
 		outputKey := path.Join("thumbnails", e.Hash+"_headshot.png")
 
 		var buffer bytes.Buffer
 		aeno.GenerateSceneToWriter(
 			&buffer,
-			objectsForHeadshot,
+			objects,
 			headshot_eye, headshot_center, headshot_up, fovy,
 			Dimentions, scale, light, amb, lightcolor, near, far, false,
 		)
@@ -497,12 +481,12 @@ func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
 	}
 }
 
-func (s *Server) ToolClause(toolData ItemData, leftArmColor string, shirtData ItemData) []*aeno.Object {
+func (s *Server) ToolClause(toolData ItemData, leftArmColor string, shirtData ItemData, config RenderConfig) []*aeno.Object {
 	objects := []*aeno.Object{}
 	cdnURL := s.config.CDNURL
 
 	var shirtTexture aeno.Texture
-	if shirtData.Item != "none" {
+	if config.IncludeTool && shirtData.Item != "none" {
 		shirtHash := getTextureHash(shirtData)
 		textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, shirtHash)
 		shirtTexture = s.cache.GetTexture(textureURL)
@@ -529,7 +513,7 @@ func (s *Server) ToolClause(toolData ItemData, leftArmColor string, shirtData It
 	return objects
 }
 
-func (s *Server) generateObjects(userConfig UserConfig) []*aeno.Object {
+func (s *Server) generateObjects(userConfig UserConfig, config RenderConfig) []*aeno.Object {
 	var allObjects []*aeno.Object
 	
 	cdnURL := s.config.CDNURL 
@@ -548,7 +532,7 @@ func (s *Server) generateObjects(userConfig UserConfig) []*aeno.Object {
 
 	headMesh := s.cache.GetMesh(headMeshPath)
 
-	bodyAndApparelObjects := s.Texturize(userConfig)
+    bodyAndApparelObjects := s.Texturize(userConfig, config)
 	allObjects = append(allObjects, bodyAndApparelObjects...)
 
 	headObject := &aeno.Object{
@@ -580,7 +564,7 @@ func (s *Server) generateObjects(userConfig UserConfig) []*aeno.Object {
 	return allObjects
 }
 
-func (s *Server) Texturize(config UserConfig) []*aeno.Object {
+func (s *Server) Texturize(userConfig UserConfig, config RenderConfig) []*aeno.Object {
 	objects := []*aeno.Object{}
 	cdnURL := s.config.CDNURL 
 
@@ -596,21 +580,21 @@ func (s *Server) Texturize(config UserConfig) []*aeno.Object {
 	}
 
 	// Use the cache for all body part meshes
-	torsoMesh := s.cache.GetMesh(getMeshPath(config.BodyParts.Torso, "chesticle"))
-	rightArmMesh := s.cache.GetMesh(getMeshPath(config.BodyParts.RightArm, "arm_right"))
-	leftLegMesh := s.cache.GetMesh(getMeshPath(config.BodyParts.LeftLeg, "leg_left"))
-	rightLegMesh := s.cache.GetMesh(getMeshPath(config.BodyParts.RightLeg, "leg_right"))
+	torsoMesh := s.cache.GetMesh(getMeshPath(userConfig.BodyParts.Torso, "chesticle"))
+	rightArmMesh := s.cache.GetMesh(getMeshPath(userConfig.BodyParts.RightArm, "arm_right"))
+	leftLegMesh := s.cache.GetMesh(getMeshPath(userConfig.BodyParts.LeftLeg, "leg_left"))
+	rightLegMesh := s.cache.GetMesh(getMeshPath(userConfig.BodyParts.RightLeg, "leg_right"))
 	teeMesh := s.cache.GetMesh(fmt.Sprintf("%s/assets/tee.obj", cdnURL))
 
-	torsoObj := &aeno.Object{Mesh: torsoMesh.Copy(), Color: aeno.HexColor(config.Colors["Torso"]), Matrix: aeno.Identity()}
-	rightArmObj := &aeno.Object{Mesh: rightArmMesh.Copy(), Color: aeno.HexColor(config.Colors["RightArm"]), Matrix: aeno.Identity()}
-	leftLegObj := &aeno.Object{Mesh: leftLegMesh.Copy(), Color: aeno.HexColor(config.Colors["LeftLeg"]), Matrix: aeno.Identity()}
-	rightLegObj := &aeno.Object{Mesh: rightLegMesh.Copy(), Color: aeno.HexColor(config.Colors["RightLeg"]), Matrix: aeno.Identity()}
+	torsoObj := &aeno.Object{Mesh: torsoMesh.Copy(), Color: aeno.HexColor(userConfig.Colors["Torso"]), Matrix: aeno.Identity()}
+	rightArmObj := &aeno.Object{Mesh: rightArmMesh.Copy(), Color: aeno.HexColor(userConfig.Colors["RightArm"]), Matrix: aeno.Identity()}
+	leftLegObj := &aeno.Object{Mesh: leftLegMesh.Copy(), Color: aeno.HexColor(userConfig.Colors["LeftLeg"]), Matrix: aeno.Identity()}
+	rightLegObj := &aeno.Object{Mesh: rightLegMesh.Copy(), Color: aeno.HexColor(userConfig.Colors["RightLeg"]), Matrix: aeno.Identity()}
 	
 	objects = append(objects, torsoObj, rightArmObj, leftLegObj, rightLegObj)
 
 if config.Items.Shirt.Item != "none" {
-		shirtHash := getTextureHash(config.Items.Shirt)
+		shirtHash := getTextureHash(userConfig.Items.Shirt)
 		shirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, shirtHash)
 		shirtTexture := s.cache.GetTexture(shirtTextureURL)
 		torsoObj.Texture = shirtTexture
@@ -618,7 +602,7 @@ if config.Items.Shirt.Item != "none" {
 	}
 
 	if config.Items.Pants.Item != "none" {
-		pantsHash := getTextureHash(config.Items.Pants)
+		pantsHash := getTextureHash(userConfig.Items.Pants)
 		pantsTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, pantsHash)
 		pantsTexture := s.cache.GetTexture(pantsTextureURL)
 		leftLegObj.Texture = pantsTexture
@@ -626,7 +610,7 @@ if config.Items.Shirt.Item != "none" {
 	}
 
 	if config.Items.Tshirt.Item != "none" {
-		tshirtHash := getTextureHash(config.Items.Tshirt)
+		tshirtHash := getTextureHash(userConfig.Items.Tshirt)
 		tshirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, tshirtHash)
 		tshirtTexture := s.cache.GetTexture(tshirtTextureURL)
 		TshirtLoader := &aeno.Object{
@@ -638,12 +622,13 @@ if config.Items.Shirt.Item != "none" {
 		objects = append(objects, TshirtLoader)
 	}
 	armObjects := s.ToolClause(
-		config.Items.Tool,
-		config.Colors["LeftArm"],
-		config.Items.Shirt,
+		userConfig.Items.Tool,
+		userConfig.Colors["LeftArm"],
+		userConfig.Items.Shirt,
+		config,
 	)
+	
 	objects = append(objects, armObjects...)
-
 	return objects
 }
 func (s *Server) generatePreview(config ItemConfig) []*aeno.Object {
