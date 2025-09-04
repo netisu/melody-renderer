@@ -356,11 +356,11 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 		outputKey := path.Join("thumbnails", e.Hash+".png")
 		
 		var buffer bytes.Buffer
-		aeno.GenerateSceneToWriter( // Assuming the library has or can be adapted to have this function
+		aeno.GenerateSceneToWriter(
 			&buffer,
 			objects,
 			eye, center, up, fovy,
-			Dimentions, scale, light, amb, lightcolor, near, far, true, // Pass transparentBG flag
+			Dimentions, scale, light, amb, lightcolor, near, far, true, // This true actually decides if all objects are fit into a bounding box or not.
 		)
 
 		s.uploadToS3(buffer.Bytes(), outputKey)
