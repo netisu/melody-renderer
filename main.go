@@ -395,7 +395,7 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 
 func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent, isPreview bool) {
 	start := time.Now()
-	itemEye := aeno.V(0, 0, 0)
+	itemEye := aeno.V(0, 1, 0)
 
 	var objects []*aeno.Object
 	var outputKey string
