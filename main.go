@@ -35,7 +35,7 @@ const (
 var (
 	eye    = aeno.V(-0.75, 0.85, 2)
 	center = aeno.V(0, 0, 0)
-	up     = aeno.V(0, 1.5, 0)
+	up     = aeno.V(0, 1, 0)
 	light  = aeno.V(-1, 3, 1).Normalize()
 )
 
@@ -395,6 +395,8 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 
 func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent, isPreview bool) {
 	start := time.Now()
+	itemEye := aeno.V(0, 0, 0)
+
 	var objects []*aeno.Object
 	var outputKey string
 	
@@ -421,7 +423,7 @@ func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent, isPreview 
 	aeno.GenerateSceneToWriter(
 		&buffer,
 		objects,
-		eye, center, up, fovy,
+		itemEye, center, up, fovy,
 		Dimentions, scale, light, amb, lightcolor, near, far, true,
 	)
 
