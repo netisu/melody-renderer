@@ -24,7 +24,7 @@ import (
 // --- Constants and Global Variables ---
 const (
 	scale      = 1
-	fovy       = 22.5
+	fovy       = 15.0
 	near       = 1.0
 	far        = 1000
 	amb        = "b0b0b0"
