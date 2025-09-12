@@ -461,6 +461,18 @@ func (s *Server) uploadToS3(buffer []byte, key string) {
 	}
 }
 
+// Helper function to build the correct path
+func (s *Server) getMeshPath(partName, defaultName string) string {
+	cdnURL := s.config.CDNURL
+	if partName == "" {
+		partName = defaultName
+	}
+	if partName == defaultName {
+		return fmt.Sprintf("%s/assets/%s.obj", cdnURL, partName)
+	}
+	return fmt.Sprintf("%s/uploads/%s.obj", cdnURL, partName)
+}
+
 func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
 	if itemData.Item == "none" {
 		return nil
@@ -488,17 +500,6 @@ func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
 		Texture: s.cache.GetTexture(textureURL),
 		Matrix:  aeno.Identity(),
 	}
-}
-// Helper function to build the correct path
-func (s *Server) getMeshPath(partName, defaultName string) string {
-	cdnURL := s.config.CDNURL
-	if partName == "" {
-		partName = defaultName
-	}
-	if partName == defaultName {
-		return fmt.Sprintf("%s/assets/%s.obj", cdnURL, partName)
-	}
-	return fmt.Sprintf("%s/uploads/%s.obj", cdnURL, partName)
 }
 
 func (s *Server) ToolClause(toolData, toolArmData ItemData, leftArmColor string, shirtData ItemData, config RenderConfig, leftArmMeshName string) []*aeno.Object {
