@@ -97,11 +97,11 @@ var useDefault UserConfig = UserConfig{
 	BodyParts: BodyParts{
 		Head:     "cranium",
 		Torso:    "chesticle",
-		ToolArm:    "tool_arm",
 		LeftArm:  "arm_left",
 		RightArm: "arm_right",
 		LeftLeg:  "leg_left",
 		RightLeg: "leg_right",
+		ToolArm:  "tool_arm",
 	},
 	Items: struct {
 		Face   ItemData       `json:"face"`
@@ -491,6 +491,7 @@ func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
 }
 // Helper function to build the correct path
 func getMeshPath(partName, defaultName string) string {
+	cdnURL := s.config.CDNURL
 	if partName == "" {
 		partName = defaultName
 	}
