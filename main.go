@@ -46,6 +46,7 @@ type ItemData struct {
 type BodyParts struct {
 	Head     string `json:"head"`
 	Torso    string `json:"torso"`
+	ToolArm  string	`json:"tool_arm"`
 	LeftArm  string `json:"left_arm"`
 	RightArm string `json:"right_arm"`
 	LeftLeg  string `json:"left_leg"`
@@ -77,6 +78,7 @@ type UserConfig struct {
 		Hats   HatsCollection `json:"hats"`
 		Addon  ItemData       `json:"addon"`
 		Tool   ItemData       `json:"tool"`
+	    ToolArm ItemData	  `json:"tool_arm"`
 		Head   ItemData       `json:"head"`
 		Pants  ItemData       `json:"pants"`
 		Shirt  ItemData       `json:"shirt"`
@@ -95,6 +97,7 @@ var useDefault UserConfig = UserConfig{
 	BodyParts: BodyParts{
 		Head:     "cranium",
 		Torso:    "chesticle",
+		ToolArm:    "tool_arm",
 		LeftArm:  "arm_left",
 		RightArm: "arm_right",
 		LeftLeg:  "leg_left",
@@ -105,6 +108,7 @@ var useDefault UserConfig = UserConfig{
 		Hats   HatsCollection `json:"hats"`
 		Addon  ItemData       `json:"addon"`
 		Tool   ItemData       `json:"tool"`
+		ToolArm ItemData      `json:"toolarm"`
 		Head   ItemData       `json:"head"`
 		Pants  ItemData       `json:"pants"`
 		Shirt  ItemData       `json:"shirt"`
@@ -122,6 +126,7 @@ var useDefault UserConfig = UserConfig{
 		Addon:  ItemData{Item: "none"},
 		Head:   ItemData{Item: "none"},
 		Tool:   ItemData{Item: "none"},
+		ToolArm: ItemData{Item: "none"}, // Default for ToolArm
 		Pants:  ItemData{Item: "none"},
 		Shirt:  ItemData{Item: "none"},
 		Tshirt: ItemData{Item: "none"},
@@ -369,6 +374,7 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 	go func() {
 		defer wg.Done()
 		var (
+			headshot_fovy 	= 15.5
 			headshot_eye    = aeno.V(-4, 7, 13)
 			headshot_center = aeno.V(-0.5, 6.8, 0)
 			headshot_up     = aeno.V(0, 4, 0)
@@ -380,7 +386,7 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 		aeno.GenerateSceneToWriter(
 			&buffer,
 			objects,
-			headshot_eye, headshot_center, headshot_up, fovy,
+			headshot_eye, headshot_center, headshot_up, headshot_fovy,
 			Dimentions, scale, light, amb, lightcolor, near, far, false,
 		)
 
@@ -397,7 +403,8 @@ func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent, isPreview 
 	start := time.Now()
 	var objects []*aeno.Object
 	var outputKey string
-	
+	cameraCenter := center // Default center
+
 	if isPreview {
 		objects = s.generatePreview(i.RenderJson, RenderConfig{IncludeTool: true})
 		if i.RenderJson.PathMod {
@@ -408,6 +415,8 @@ func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent, isPreview 
 	} else {
 		if renderedObject := s.RenderItem(i.RenderJson.Item); renderedObject != nil {
 			objects = []*aeno.Object{renderedObject}
+			bounds := renderedObject.Mesh.BoundingBox()
+			cameraCenter = bounds.Center() // Aim camera at the item's center
 		}
 		outputKey = path.Join("thumbnails", i.Hash+".png")
 	}
@@ -421,7 +430,7 @@ func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent, isPreview 
 	aeno.GenerateSceneToWriter(
 		&buffer,
 		objects,
-		eye, center, up, fovy,
+		eye, cameraCenter, up, fovy,
 		Dimentions, scale, light, amb, lightcolor, near, far, true,
 	)
 
@@ -480,11 +489,20 @@ func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
 		Matrix:  aeno.Identity(),
 	}
 }
+// Helper function to build the correct path
+func getMeshPath(partName, defaultName string) string {
+	if partName == "" {
+		partName = defaultName
+	}
+	if partName == defaultName {
+		return fmt.Sprintf("%s/assets/%s.obj", cdnURL, partName)
+	}
+	return fmt.Sprintf("%s/uploads/%s.obj", cdnURL, partName)
+}
 
-func (s *Server) ToolClause(toolData ItemData, leftArmColor string, shirtData ItemData, config RenderConfig) []*aeno.Object {
+func (s *Server) ToolClause(toolData, toolArmData ItemData, leftArmColor string, shirtData ItemData, config RenderConfig, leftArmMeshName string) []*aeno.Object {
 	objects := []*aeno.Object{}
 	cdnURL := s.config.CDNURL
-
 	var shirtTexture aeno.Texture
 	if shirtData.Item != "none" {
 		shirtHash := getTextureHash(shirtData)
@@ -494,12 +512,19 @@ func (s *Server) ToolClause(toolData ItemData, leftArmColor string, shirtData It
 
 	var armMesh *aeno.Mesh
 	if config.IncludeTool && toolData.Item != "none" {
-		armMesh = s.cache.GetMesh(fmt.Sprintf("%s/assets/arm_tool.obj", cdnURL))
+		// A tool is equipped, decide which arm mesh to use.
+		if toolArmData.Item != "none" {
+			toolArmMeshPath := fmt.Sprintf("%s/uploads/%s.obj", cdnURL, toolArmData.Item)
+			armMesh = s.cache.GetMesh(toolArmMeshPath)
+		} else {
+			armMesh = s.cache.GetMesh(fmt.Sprintf("%s/assets/arm_tool.obj", cdnURL))
+		}
+		// Also render the tool model itself.
 		if toolObj := s.RenderItem(toolData); toolObj != nil {
 			objects = append(objects, toolObj)
 		}
 	} else {
-		armMesh = s.cache.GetMesh(fmt.Sprintf("%s/assets/arm_left.obj", cdnURL))
+		armMesh = s.cache.GetMesh(getMeshPath(leftArmMeshName, "arm_left"))
 	}
 
 	armObject := &aeno.Object{
@@ -509,7 +534,6 @@ func (s *Server) ToolClause(toolData ItemData, leftArmColor string, shirtData It
 		Matrix:  aeno.Identity(),
 	}
 	objects = append(objects, armObject)
-
 	return objects
 }
 
@@ -568,17 +592,6 @@ func (s *Server) Texturize(userConfig UserConfig, config RenderConfig) []*aeno.O
 	objects := []*aeno.Object{}
 	cdnURL := s.config.CDNURL 
 
-	// Helper function to build the correct path
-	getMeshPath := func(partName, defaultName string) string {
-		if partName == "" {
-			partName = defaultName
-		}
-		if partName == defaultName {
-			return fmt.Sprintf("%s/assets/%s.obj", cdnURL, partName)
-		}
-		return fmt.Sprintf("%s/uploads/%s.obj", cdnURL, partName)
-	}
-
 	// Use the cache for all body part meshes
 	torsoMesh := s.cache.GetMesh(getMeshPath(userConfig.BodyParts.Torso, "chesticle"))
 	rightArmMesh := s.cache.GetMesh(getMeshPath(userConfig.BodyParts.RightArm, "arm_right"))
@@ -623,9 +636,11 @@ func (s *Server) Texturize(userConfig UserConfig, config RenderConfig) []*aeno.O
 	}
 	armObjects := s.ToolClause(
 		userConfig.Items.Tool,
+		userConfig.Items.ToolArm, // Pass the new ToolArm data
 		userConfig.Colors["LeftArm"],
 		userConfig.Items.Shirt,
 		config,
+		userConfig.BodyParts.LeftArm,
 	)
 	
 	objects = append(objects, armObjects...)
