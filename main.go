@@ -108,7 +108,7 @@ var useDefault UserConfig = UserConfig{
 		Hats   HatsCollection `json:"hats"`
 		Addon  ItemData       `json:"addon"`
 		Tool   ItemData       `json:"tool"`
-		ToolArm ItemData      `json:"toolarm"`
+		ToolArm ItemData      `json:"tool_arm"`
 		Head   ItemData       `json:"head"`
 		Pants  ItemData       `json:"pants"`
 		Shirt  ItemData       `json:"shirt"`
@@ -490,7 +490,7 @@ func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
 	}
 }
 // Helper function to build the correct path
-func getMeshPath(partName, defaultName string) string {
+func (s *Server) getMeshPath(partName, defaultName string) string {
 	cdnURL := s.config.CDNURL
 	if partName == "" {
 		partName = defaultName
