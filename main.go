@@ -526,7 +526,7 @@ func (s *Server) ToolClause(toolData, toolArmData ItemData, leftArmColor string,
 			objects = append(objects, toolObj)
 		}
 	} else {
-		armMesh = s.cache.GetMesh(getMeshPath(leftArmMeshName, "arm_left"))
+		armMesh = s.cache.GetMesh(s.getMeshPath(leftArmMeshName, "arm_left"))
 	}
 
 	armObject := &aeno.Object{
@@ -595,10 +595,10 @@ func (s *Server) Texturize(userConfig UserConfig, config RenderConfig) []*aeno.O
 	cdnURL := s.config.CDNURL 
 
 	// Use the cache for all body part meshes
-	torsoMesh := s.cache.GetMesh(getMeshPath(userConfig.BodyParts.Torso, "chesticle"))
-	rightArmMesh := s.cache.GetMesh(getMeshPath(userConfig.BodyParts.RightArm, "arm_right"))
-	leftLegMesh := s.cache.GetMesh(getMeshPath(userConfig.BodyParts.LeftLeg, "leg_left"))
-	rightLegMesh := s.cache.GetMesh(getMeshPath(userConfig.BodyParts.RightLeg, "leg_right"))
+	torsoMesh := s.cache.GetMesh(s.getMeshPath(userConfig.BodyParts.Torso, "chesticle"))
+	rightArmMesh := s.cache.GetMesh(s.getMeshPath(userConfig.BodyParts.RightArm, "arm_right"))
+	leftLegMesh := s.cache.GetMesh(s.getMeshPath(userConfig.BodyParts.LeftLeg, "leg_left"))
+	rightLegMesh := s.cache.GetMesh(s.getMeshPath(userConfig.BodyParts.RightLeg, "leg_right"))
 	teeMesh := s.cache.GetMesh(fmt.Sprintf("%s/assets/tee.obj", cdnURL))
 
 	torsoObj := &aeno.Object{Mesh: torsoMesh.Copy(), Color: aeno.HexColor(userConfig.Colors["Torso"]), Matrix: aeno.Identity()}
