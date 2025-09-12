@@ -403,8 +403,6 @@ func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent, isPreview 
 	start := time.Now()
 	var objects []*aeno.Object
 	var outputKey string
-	cameraCenter := center // Default center
-
 	if isPreview {
 		objects = s.generatePreview(i.RenderJson, RenderConfig{IncludeTool: true})
 		if i.RenderJson.PathMod {
@@ -415,8 +413,6 @@ func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent, isPreview 
 	} else {
 		if renderedObject := s.RenderItem(i.RenderJson.Item); renderedObject != nil {
 			objects = []*aeno.Object{renderedObject}
-			bounds := renderedObject.Mesh.BoundingBox()
-			cameraCenter = bounds.Center() // Aim camera at the item's center
 		}
 		outputKey = path.Join("thumbnails", i.Hash+".png")
 	}
@@ -430,7 +426,7 @@ func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent, isPreview 
 	aeno.GenerateSceneToWriter(
 		&buffer,
 		objects,
-		eye, cameraCenter, up, fovy,
+		eye, center, up, fovy,
 		Dimentions, scale, light, amb, lightcolor, near, far, true,
 	)
 
