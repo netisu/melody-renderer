@@ -193,6 +193,13 @@ func (c *AssetCache) GetMesh(url string) *aeno.Mesh {
 		return mesh
 	}
 
+	resp, err := http.Head(url)
+    if err != nil || resp.StatusCode != http.StatusOK {
+        log.Printf("Warning: Mesh not found or inaccessible at %s (Status: %d)", url, resp.StatusCode)
+        c.meshes[url] = nil // Cache the failure to avoid repeated checks
+        return nil
+    }
+
 	mesh = aeno.LoadObjectFromURL(url)
 	c.meshes[url] = mesh
 	return mesh
@@ -488,6 +495,11 @@ func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
 	}
 
 	finalMesh := s.cache.GetMesh(meshURL)
+
+	if finalMesh == nil {
+        log.Printf("Error: Could not render item because its mesh failed to load from %s", meshURL)
+        return nil
+    }
 	
 	// OPTIMIZATION: Use the cache
 	return &aeno.Object{
