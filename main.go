@@ -499,151 +499,185 @@ func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
 }
 
 func (s *Server) ToolClause(toolData, toolArmData ItemData, leftArmColor string, shirtData ItemData, config RenderConfig, leftArmMeshName string) []*aeno.Object {
-	objects := []*aeno.Object{}
-	cdnURL := s.config.CDNURL
-	var shirtTexture aeno.Texture
-	if shirtData.Item != "none" {
-		shirtHash := getTextureHash(shirtData)
-		textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, shirtHash)
-		shirtTexture = s.cache.GetTexture(textureURL)
-	}
+    objects := []*aeno.Object{}
+    cdnURL := s.config.CDNURL
+    var shirtTexture aeno.Texture
+    if shirtData.Item != "none" {
+        shirtHash := getTextureHash(shirtData)
+        textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, shirtHash)
+        shirtTexture = s.cache.GetTexture(textureURL)
+    }
 
-	var armMesh *aeno.Mesh
-	if config.IncludeTool && toolData.Item != "none" {
-		// A tool is equipped, decide which arm mesh to use.
-		if toolArmData.Item != "none" {
-			toolArmMeshPath := fmt.Sprintf("%s/uploads/%s.obj", cdnURL, toolArmData.Item)
-			armMesh = s.cache.GetMesh(toolArmMeshPath)
-		} else {
-			armMesh = s.cache.GetMesh(fmt.Sprintf("%s/assets/arm_tool.obj", cdnURL))
-		}
-		// Also render the tool model itself.
-		if toolObj := s.RenderItem(toolData); toolObj != nil {
-			objects = append(objects, toolObj)
-		}
-	} else {
-		armMesh = s.cache.GetMesh(s.getMeshPath(leftArmMeshName, "arm_left"))
-	}
+    var armMesh *aeno.Mesh
+    if config.IncludeTool && toolData.Item != "none" {
+        if toolArmData.Item != "none" {
+            toolArmMeshPath := fmt.Sprintf("%s/uploads/%s.obj", cdnURL, toolArmData.Item)
+            armMesh = s.cache.GetMesh(toolArmMeshPath)
+        } else {
+            armMesh = s.cache.GetMesh(fmt.Sprintf("%s/assets/arm_tool.obj", cdnURL))
+        }
+        if toolObj := s.RenderItem(toolData); toolObj != nil {
+            objects = append(objects, toolObj)
+        }
+    } else {
+        armMesh = s.cache.GetMesh(s.getMeshPath(leftArmMeshName, "arm_left"))
+    }
+    
+    if armMesh == nil {
+        log.Printf("Warning: Failed to load arm mesh '%s'. Skipping arm.", leftArmMeshName)
+        return objects
+    }
 
-	armObject := &aeno.Object{
-		Mesh:    armMesh.Copy(),
-		Color:   aeno.HexColor(leftArmColor),
-		Texture: shirtTexture,
-		Matrix:  aeno.Identity(),
-	}
-	objects = append(objects, armObject)
-	return objects
+    armObject := &aeno.Object{
+        Mesh:    armMesh.Copy(),
+        Color:   aeno.HexColor(leftArmColor),
+        Texture: shirtTexture,
+        Matrix:  aeno.Identity(),
+    }
+    objects = append(objects, armObject)
+    return objects
 }
 
 func (s *Server) generateObjects(userConfig UserConfig, config RenderConfig) []*aeno.Object {
-	var allObjects []*aeno.Object
-	
-	cdnURL := s.config.CDNURL 
-	
-	headMeshName := userConfig.BodyParts.Head
-	if headMeshName == "" {
-		headMeshName = "cranium"
-	}
+    var allObjects []*aeno.Object
+    
+    cdnURL := s.config.CDNURL 
+    
+    headMeshName := userConfig.BodyParts.Head
+    if headMeshName == "" {
+        headMeshName = "cranium"
+    }
 
-	var headMeshPath string
-	if headMeshName == "cranium" {
-		headMeshPath = fmt.Sprintf("%s/assets/%s.obj", cdnURL, headMeshName)
-	} else {
-		headMeshPath = fmt.Sprintf("%s/uploads/%s.obj", cdnURL, headMeshName)
-	}
+    var headMeshPath string
+    if headMeshName == "cranium" {
+        headMeshPath = fmt.Sprintf("%s/assets/%s.obj", cdnURL, headMeshName)
+    } else {
+        headMeshPath = fmt.Sprintf("%s/uploads/%s.obj", cdnURL, headMeshName)
+    }
 
-	headMesh := s.cache.GetMesh(headMeshPath)
+    headMesh := s.cache.GetMesh(headMeshPath)
+    
+    if headMesh == nil {
+        log.Printf("Warning: Failed to load head mesh '%s'. Skipping.", headMeshName)
+    } else {
+        headObject := &aeno.Object{
+            Mesh:   headMesh.Copy(),
+            Color:  aeno.HexColor(userConfig.Colors["Head"]),
+            Matrix: aeno.Identity(),
+        }
+        headObject.Texture = s.AddFace(userConfig.Items.Face)
+        allObjects = append(allObjects, headObject)
+    }
 
     bodyAndApparelObjects := s.Texturize(userConfig, config)
-	allObjects = append(allObjects, bodyAndApparelObjects...)
+    allObjects = append(allObjects, bodyAndApparelObjects...)
 
-	headObject := &aeno.Object{
-		Mesh:   headMesh.Copy(),
-		Color:  aeno.HexColor(userConfig.Colors["Head"]),
-		Matrix: aeno.Identity(),
-	}
+    if obj := s.RenderItem(userConfig.Items.Addon); obj != nil {
+        allObjects = append(allObjects, obj)
+    }
 
-	
-	headObject.Texture = s.AddFace(userConfig.Items.Face)
-	allObjects = append(allObjects, headObject)
+    for hatKey, hatItemData := range userConfig.Items.Hats {
+        if !hatKeyPattern.MatchString(hatKey) {
+            log.Printf("Warning: Invalid hat key format: '%s'. Skipping hat.\n", hatKey)
+            continue
+        }
+        if hatItemData.Item != "none" {
+            if obj := s.RenderItem(hatItemData); obj != nil {
+                allObjects = append(allObjects, obj)
+            }
+        }
+    }
 
-	if obj := s.RenderItem(userConfig.Items.Addon); obj != nil {
-		allObjects = append(allObjects, obj)
-	}
-
-	for hatKey, hatItemData := range userConfig.Items.Hats {
-		if !hatKeyPattern.MatchString(hatKey) {
-			log.Printf("Warning: Invalid hat key format: '%s'. Skipping hat.\n", hatKey)
-			continue
-		}
-		if hatItemData.Item != "none" {
-			if obj := s.RenderItem(hatItemData); obj != nil {
-				allObjects = append(allObjects, obj)
-			}
-		}
-	}
-
-	return allObjects
+    return allObjects
 }
 
 func (s *Server) Texturize(userConfig UserConfig, config RenderConfig) []*aeno.Object {
-	objects := []*aeno.Object{}
-	cdnURL := s.config.CDNURL 
+    objects := []*aeno.Object{}
+    cdnURL := s.config.CDNURL 
 
-	// Use the cache for all body part meshes
-	torsoMesh := s.cache.GetMesh(s.getMeshPath(userConfig.BodyParts.Torso, "chesticle"))
-	rightArmMesh := s.cache.GetMesh(s.getMeshPath(userConfig.BodyParts.RightArm, "arm_right"))
-	leftLegMesh := s.cache.GetMesh(s.getMeshPath(userConfig.BodyParts.LeftLeg, "leg_left"))
-	rightLegMesh := s.cache.GetMesh(s.getMeshPath(userConfig.BodyParts.RightLeg, "leg_right"))
-	teeMesh := s.cache.GetMesh(fmt.Sprintf("%s/assets/tee.obj", cdnURL))
+    // Load meshes
+    torsoMesh := s.cache.GetMesh(s.getMeshPath(userConfig.BodyParts.Torso, "chesticle"))
+    rightArmMesh := s.cache.GetMesh(s.getMeshPath(userConfig.BodyParts.RightArm, "arm_right"))
+    leftLegMesh := s.cache.GetMesh(s.getMeshPath(userConfig.BodyParts.LeftLeg, "leg_left"))
+    rightLegMesh := s.cache.GetMesh(s.getMeshPath(userConfig.BodyParts.RightLeg, "leg_right"))
+    teeMesh := s.cache.GetMesh(fmt.Sprintf("%s/assets/tee.obj", cdnURL))
 
-	torsoObj := &aeno.Object{Mesh: torsoMesh.Copy(), Color: aeno.HexColor(userConfig.Colors["Torso"]), Matrix: aeno.Identity()}
-	rightArmObj := &aeno.Object{Mesh: rightArmMesh.Copy(), Color: aeno.HexColor(userConfig.Colors["RightArm"]), Matrix: aeno.Identity()}
-	leftLegObj := &aeno.Object{Mesh: leftLegMesh.Copy(), Color: aeno.HexColor(userConfig.Colors["LeftLeg"]), Matrix: aeno.Identity()}
-	rightLegObj := &aeno.Object{Mesh: rightLegMesh.Copy(), Color: aeno.HexColor(userConfig.Colors["RightLeg"]), Matrix: aeno.Identity()}
-	
-	objects = append(objects, torsoObj, rightArmObj, leftLegObj, rightLegObj)
+    if torsoMesh != nil {
+        torsoObj := &aeno.Object{Mesh: torsoMesh.Copy(), Color: aeno.HexColor(userConfig.Colors["Torso"]), Matrix: aeno.Identity()}
+        if userConfig.Items.Shirt.Item != "none" {
+            shirtHash := getTextureHash(userConfig.Items.Shirt)
+            shirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, shirtHash)
+            torsoObj.Texture = s.cache.GetTexture(shirtTextureURL)
+        }
+        objects = append(objects, torsoObj)
+    } else {
+        log.Printf("Warning: Failed to load torso mesh '%s'. Skipping.", userConfig.BodyParts.Torso)
+    }
 
-	if userConfig.Items.Shirt.Item != "none" {
-		shirtHash := getTextureHash(userConfig.Items.Shirt)
-		shirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, shirtHash)
-		shirtTexture := s.cache.GetTexture(shirtTextureURL)
-		torsoObj.Texture = shirtTexture
-		rightArmObj.Texture = shirtTexture
-	}
+    if rightArmMesh != nil {
+        rightArmObj := &aeno.Object{Mesh: rightArmMesh.Copy(), Color: aeno.HexColor(userConfig.Colors["RightArm"]), Matrix: aeno.Identity()}
+        if userConfig.Items.Shirt.Item != "none" {
+            shirtHash := getTextureHash(userConfig.Items.Shirt)
+            shirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, shirtHash)
+            rightArmObj.Texture = s.cache.GetTexture(shirtTextureURL)
+        }
+        objects = append(objects, rightArmObj)
+    } else {
+        log.Printf("Warning: Failed to load right arm mesh '%s'. Skipping.", userConfig.BodyParts.RightArm)
+    }
 
-	if userConfig.Items.Pants.Item != "none" {
-		pantsHash := getTextureHash(userConfig.Items.Pants)
-		pantsTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, pantsHash)
-		pantsTexture := s.cache.GetTexture(pantsTextureURL)
-		leftLegObj.Texture = pantsTexture
-		rightLegObj.Texture = pantsTexture
-	}
+    if leftLegMesh != nil {
+        leftLegObj := &aeno.Object{Mesh: leftLegMesh.Copy(), Color: aeno.HexColor(userConfig.Colors["LeftLeg"]), Matrix: aeno.Identity()}
+        if userConfig.Items.Pants.Item != "none" {
+            pantsHash := getTextureHash(userConfig.Items.Pants)
+            pantsTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, pantsHash)
+            leftLegObj.Texture = s.cache.GetTexture(pantsTextureURL)
+        }
+        objects = append(objects, leftLegObj)
+    } else {
+        log.Printf("Warning: Failed to load left leg mesh '%s'. Skipping.", userConfig.BodyParts.LeftLeg)
+    }
+    
+    if rightLegMesh != nil {
+        rightLegObj := &aeno.Object{Mesh: rightLegMesh.Copy(), Color: aeno.HexColor(userConfig.Colors["RightLeg"]), Matrix: aeno.Identity()}
+        if userConfig.Items.Pants.Item != "none" {
+            pantsHash := getTextureHash(userConfig.Items.Pants)
+            pantsTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, pantsHash)
+            rightLegObj.Texture = s.cache.GetTexture(pantsTextureURL)
+        }
+        objects = append(objects, rightLegObj)
+    } else {
+        log.Printf("Warning: Failed to load right leg mesh '%s'. Skipping.", userConfig.BodyParts.RightLeg)
+    }
 
-	if userConfig.Items.Tshirt.Item != "none" {
-		tshirtHash := getTextureHash(userConfig.Items.Tshirt)
-		tshirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, tshirtHash)
-		tshirtTexture := s.cache.GetTexture(tshirtTextureURL)
-		TshirtLoader := &aeno.Object{
-			Mesh:    teeMesh.Copy(),
-			Color:   aeno.Transparent,
-			Texture: tshirtTexture,
-			Matrix:  aeno.Identity(),
-		}
-		objects = append(objects, TshirtLoader)
-	}
-	armObjects := s.ToolClause(
-		userConfig.Items.Tool,
-		userConfig.Items.ToolArm, // Pass the new ToolArm data
-		userConfig.Colors["LeftArm"],
-		userConfig.Items.Shirt,
-		config,
-		userConfig.BodyParts.LeftArm,
-	)
-	
-	objects = append(objects, armObjects...)
-	return objects
+    if userConfig.Items.Tshirt.Item != "none" && teeMesh != nil {
+        tshirtHash := getTextureHash(userConfig.Items.Tshirt)
+        tshirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, tshirtHash)
+        tshirtTexture := s.cache.GetTexture(tshirtTextureURL)
+        TshirtLoader := &aeno.Object{
+            Mesh:    teeMesh.Copy(),
+            Color:   aeno.Transparent,
+            Texture: tshirtTexture,
+            Matrix:  aeno.Identity(),
+        }
+        objects = append(objects, TshirtLoader)
+    } else if teeMesh == nil {
+        log.Printf("Warning: Failed to load default tee.obj for T-Shirt. Skipping.")
+    }
+
+    armObjects := s.ToolClause(
+        userConfig.Items.Tool,
+        userConfig.Items.ToolArm,
+        userConfig.Colors["LeftArm"],
+        userConfig.Items.Shirt,
+        config,
+        userConfig.BodyParts.LeftArm,
+    )
+    
+    objects = append(objects, armObjects...)
+    return objects
 }
+
 func (s *Server) generatePreview(config ItemConfig, renderConfig RenderConfig) []*aeno.Object {
 	fmt.Printf("generatePreview: Starting for ItemType: %s, Item: %+v\n", config.ItemType, config.Item)
 
