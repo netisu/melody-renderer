@@ -601,9 +601,15 @@ func (s *Server) generateObjects(userConfig UserConfig, config RenderConfig) []*
 			Matrix: aeno.Identity(),
 		}
 		
-		if name == "Head" || name == "LeftArm" || name == "RightArm" && userConfig.Items.Shirt.Item != "none"  {
+		if name == "Torso" || name == "LeftArm" || name == "RightArm" && userConfig.Items.Shirt.Item != "none"  {
 			shirtHash := getTextureHash(userConfig.Items.Shirt)
 			textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, shirtHash)
+			bodyPartObject.Texture = s.cache.GetTexture(textureURL)
+		}
+
+		if name == "LeftLeg" || name == "RightLeg" && userConfig.Items.Pants.Item != "none"  {
+			pantHash := getTextureHash(userConfig.Items.Pants)
+			textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, pantHash)
 			bodyPartObject.Texture = s.cache.GetTexture(textureURL)
 		}
 		
