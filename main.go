@@ -510,44 +510,43 @@ func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
 	}
 }
 
-func (s *Server) ToolClause(toolData, toolArmData ItemData, leftArmColor string, shirtData ItemData, config RenderConfig, leftArmMeshName string) []*aeno.Object {
-    objects := []*aeno.Object{}
-    cdnURL := s.config.CDNURL
-    var shirtTexture aeno.Texture
-    if shirtData.Item != "none" {
-        shirtHash := getTextureHash(shirtData)
-        textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, shirtHash)
-        shirtTexture = s.cache.GetTexture(textureURL)
-    }
+func (s *Server) ToolClause(toolData ItemData, toolArmMeshName string, leftArmColor string, shirtData ItemData) []*aeno.Object {
+	objects := []*aeno.Object{}
+	cdnURL := s.config.CDNURL
+	var shirtTexture aeno.Texture
+	if shirtData.Item != "none" {
+		shirtHash := getTextureHash(shirtData)
+		textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, shirtHash)
+		shirtTexture = s.cache.GetTexture(textureURL)
+	}
 
-    var armMesh *aeno.Mesh
-    if config.IncludeTool && toolData.Item != "none" {
-        if toolArmData.Item != "none" {
-            toolArmMeshPath := fmt.Sprintf("%s/uploads/%s.obj", cdnURL, toolArmData.Item)
-            armMesh = s.cache.GetMesh(toolArmMeshPath)
-        } else {
-            armMesh = s.cache.GetMesh(fmt.Sprintf("%s/assets/arm_tool.obj", cdnURL))
-        }
-        if toolObj := s.RenderItem(toolData); toolObj != nil {
-            objects = append(objects, toolObj)
-        }
-    } else {
-        armMesh = s.cache.GetMesh(s.getMeshPath(leftArmMeshName, "arm_left"))
-    }
-    
-    if armMesh == nil {
-        log.Printf("Warning: Failed to load arm mesh '%s'. Skipping arm.", leftArmMeshName)
-        return objects
-    }
+	var toolArmPath string
+	// If a custom tool arm is specified (and it's not the default placeholder name), use it.
+	if toolArmMeshName != "" && toolArmMeshName != "arm_tool" {
+		toolArmPath = fmt.Sprintf("%s/uploads/%s.obj", cdnURL, toolArmMeshName)
+	} else {
+		// Otherwise, use the default asset.
+		toolArmPath = fmt.Sprintf("%s/assets/arm_tool.obj", cdnURL)
+	}
+	armMesh := s.cache.GetMesh(toolArmPath)
 
-    armObject := &aeno.Object{
-        Mesh:    armMesh.Copy(),
-        Color:   aeno.HexColor(leftArmColor),
-        Texture: shirtTexture,
-        Matrix:  aeno.Identity(),
-    }
-    objects = append(objects, armObject)
-    return objects
+	if toolObj := s.RenderItem(toolData); toolObj != nil {
+		objects = append(objects, toolObj)
+	}
+
+	if armMesh == nil {
+		log.Printf("Warning: Failed to load tool arm mesh from '%s'. Skipping arm.", toolArmPath)
+		return objects
+	}
+
+	armObject := &aeno.Object{
+		Mesh:    armMesh.Copy(),
+		Color:   aeno.HexColor(leftArmColor),
+		Texture: shirtTexture,
+		Matrix:  aeno.Identity(),
+	}
+	objects = append(objects, armObject)
+	return objects
 }
 
 func (s *Server) generateObjects(userConfig UserConfig, config RenderConfig) []*aeno.Object {
