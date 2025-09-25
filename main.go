@@ -600,6 +600,12 @@ func (s *Server) generateObjects(userConfig UserConfig, config RenderConfig) []*
 			Matrix: aeno.Identity(),
 		}
 		
+		if name == "Head" || name == "LeftArm" || name == "RightArm" && userConfig.Items.Shirt.Item != "none"  {
+			shirtHash := getTextureHash(shirtData)
+			textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, shirtHash)
+			bodyPartObject.Texture = s.cache.GetTexture(textureURL)
+		}
+		
 		if name == "Head" {
 			bodyPartObject.Texture = s.AddFace(userConfig.Items.Face)
 		}
