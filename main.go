@@ -510,7 +510,7 @@ func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
 	}
 }
 
-func (s *Server) ToolClause(toolData ItemData, toolArmMeshName string, leftArmColor string, shirtData ItemData) []*aeno.Object {
+func (s *Server) ToolClause(toolData ItemData, toolArmMeshName string, leftArmColor string, shirtData ItemData, config RenderConfig) []*aeno.Object {
 	objects := []*aeno.Object{}
 	cdnURL := s.config.CDNURL
 	var shirtTexture aeno.Texture
@@ -519,33 +519,36 @@ func (s *Server) ToolClause(toolData ItemData, toolArmMeshName string, leftArmCo
 		textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, shirtHash)
 		shirtTexture = s.cache.GetTexture(textureURL)
 	}
+	
+	if config.IncludeTool {
+		var toolArmPath string
+		// If a custom tool arm is specified (and it's not the default placeholder name), use it.
+		if toolArmMeshName != "" && toolArmMeshName != "arm_tool" {
+			toolArmPath = fmt.Sprintf("%s/uploads/%s.obj", cdnURL, toolArmMeshName)
+		} else {
+			// Otherwise, use the default asset.
+			toolArmPath = fmt.Sprintf("%s/assets/arm_tool.obj", cdnURL)
+		}
+		armMesh := s.cache.GetMesh(toolArmPath)
 
-	var toolArmPath string
-	// If a custom tool arm is specified (and it's not the default placeholder name), use it.
-	if toolArmMeshName != "" && toolArmMeshName != "arm_tool" {
-		toolArmPath = fmt.Sprintf("%s/uploads/%s.obj", cdnURL, toolArmMeshName)
-	} else {
-		// Otherwise, use the default asset.
-		toolArmPath = fmt.Sprintf("%s/assets/arm_tool.obj", cdnURL)
-	}
-	armMesh := s.cache.GetMesh(toolArmPath)
+		if toolObj := s.RenderItem(toolData); toolObj != nil {
+			objects = append(objects, toolObj)
+		}
 
-	if toolObj := s.RenderItem(toolData); toolObj != nil {
-		objects = append(objects, toolObj)
-	}
+		if armMesh == nil {
+			log.Printf("Warning: Failed to load tool arm mesh from '%s'. Skipping arm.", toolArmPath)
+			return objects
+		}
 
-	if armMesh == nil {
-		log.Printf("Warning: Failed to load tool arm mesh from '%s'. Skipping arm.", toolArmPath)
-		return objects
+		armObject := &aeno.Object{
+			Mesh:    armMesh.Copy(),
+			Color:   aeno.HexColor(leftArmColor),
+			Texture: shirtTexture,
+			Matrix:  aeno.Identity(),
+		}
+		objects = append(objects, armObject)
 	}
-
-	armObject := &aeno.Object{
-		Mesh:    armMesh.Copy(),
-		Color:   aeno.HexColor(leftArmColor),
-		Texture: shirtTexture,
-		Matrix:  aeno.Identity(),
-	}
-	objects = append(objects, armObject)
+	
 	return objects
 }
 
