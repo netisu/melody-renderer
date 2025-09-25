@@ -582,7 +582,7 @@ func (s *Server) generateObjects(userConfig UserConfig, config RenderConfig) []*
 			continue // Skip to the next body part in the loop
 		}
 		// Use the helper function to determine the correct path (asset or upload).
-		meshPath := s.getMeshPath(meshName, defaultMesh)
+		meshPath := s.getMeshPath(parts.m[name], defaultMesh)
 		mesh := s.cache.GetMesh(meshPath)
 
 		// If the mesh fails to load, log a warning and skip this part.
