@@ -553,6 +553,7 @@ func (s *Server) ToolClause(toolData ItemData, toolArmMeshName string, leftArmCo
 }
 
 func (s *Server) generateObjects(userConfig UserConfig, config RenderConfig) []*aeno.Object {
+	cdnURL := s.config.CDNURL
 	var allObjects []*aeno.Object
 	bodyPartDefaults := map[string]string{
 		"Head":     "cranium",
@@ -601,7 +602,7 @@ func (s *Server) generateObjects(userConfig UserConfig, config RenderConfig) []*
 		}
 		
 		if name == "Head" || name == "LeftArm" || name == "RightArm" && userConfig.Items.Shirt.Item != "none"  {
-			shirtHash := getTextureHash(shirtData)
+			shirtHash := getTextureHash(userConfig.Items.Shirt)
 			textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, shirtHash)
 			bodyPartObject.Texture = s.cache.GetTexture(textureURL)
 		}
