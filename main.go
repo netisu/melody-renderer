@@ -612,11 +612,10 @@ func (s *Server) generateObjects(userConfig UserConfig, config RenderConfig) []*
 	if isToolEquipped {
 		armAndToolObjects := s.ToolClause(
 			userConfig.Items.Tool,
-			userConfig.Items.ToolArm,
+			userConfig.BodyParts.ToolArm,
 			userConfig.Colors["LeftArm"],
 			userConfig.Items.Shirt,
 			config,
-			userConfig.BodyParts.LeftArm,
 		)
 		allObjects = append(allObjects, armAndToolObjects...)
 	}
