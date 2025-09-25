@@ -573,10 +573,14 @@ func (s *Server) generateObjects(userConfig UserConfig, config RenderConfig) []*
 			"RightLeg": userConfig.BodyParts.RightLeg,
 		},
 	}
+	
+	isToolEquipped := config.IncludeTool && userConfig.Items.Tool.Item != "none"
 
 	for name, defaultMesh := range bodyPartDefaults {
-		meshName := parts.m[name]
-
+		
+		if name == "LeftArm" && isToolEquipped {
+			continue // Skip to the next body part in the loop
+		}
 		// Use the helper function to determine the correct path (asset or upload).
 		meshPath := s.getMeshPath(meshName, defaultMesh)
 		mesh := s.cache.GetMesh(meshPath)
@@ -593,28 +597,17 @@ func (s *Server) generateObjects(userConfig UserConfig, config RenderConfig) []*
 			Color:  aeno.HexColor(userConfig.Colors[name]),
 			Matrix: aeno.Identity(),
 		}
-
+		
+		if name == "Head" {
+			bodyPartObject.Texture = s.AddFace(userConfig.Items.Face)
+		}
+		
 		// Add the completed object to our list for rendering.
 		allObjects = append(allObjects, bodyPartObject)
 	}
 
 	// Here, we decide whether to render the normal left arm or the tool-holding arm.
-	if config.IncludeTool && userConfig.Items.Tool.Item != "none" {
-		// If a tool is equipped, find and remove the standard "LeftArm" from the list.
-		// It will be replaced by the appropriate tool-holding arm from the ToolClause function.
-		var found bool
-		for i, obj := range allObjects {
-			if obj.Mesh.Name() == s.getMeshPath(userConfig.BodyParts.LeftArm, "arm_left") {
-				allObjects = append(allObjects[:i], allObjects[i+1:]...)
-				found = true
-				break
-			}
-		}
-		if !found {
-			log.Printf("Warning: Could not find standard LeftArm to replace with tool arm.")
-		}
-
-		// Add the tool arm and the tool itself.
+	if isToolEquipped {
 		armAndToolObjects := s.ToolClause(
 			userConfig.Items.Tool,
 			userConfig.Items.ToolArm,
@@ -625,7 +618,23 @@ func (s *Server) generateObjects(userConfig UserConfig, config RenderConfig) []*
 		)
 		allObjects = append(allObjects, armAndToolObjects...)
 	}
+	
+	if obj := s.RenderItem(userConfig.Items.Addon); obj != nil {
+		allObjects = append(allObjects, obj)
+	}
 
+	for hatKey, hatItemData := range userConfig.Items.Hats {
+		if !hatKeyPattern.MatchString(hatKey) {
+			log.Printf("Warning: Invalid hat key format: '%s'. Skipping hat.\n", hatKey)
+			continue
+		}
+		if hatItemData.Item != "none" {
+			if obj := s.RenderItem(hatItemData); obj != nil {
+				allObjects = append(allObjects, obj)
+			}
+		}
+	}
+	
 	return allObjects
 }
 
