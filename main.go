@@ -551,143 +551,82 @@ func (s *Server) ToolClause(toolData, toolArmData ItemData, leftArmColor string,
 }
 
 func (s *Server) generateObjects(userConfig UserConfig, config RenderConfig) []*aeno.Object {
-    var allObjects []*aeno.Object
-    
-    cdnURL := s.config.CDNURL 
-    
-    headMeshName := userConfig.BodyParts.Head
-    if headMeshName == "" {
-        headMeshName = "cranium"
-    }
+	var allObjects []*aeno.Object
+	bodyPartDefaults := map[string]string{
+		"Head":     "cranium",
+		"Torso":    "chesticle",
+		"LeftArm":  "arm_left",
+		"RightArm": "arm_right",
+		"LeftLeg":  "leg_left",
+		"RightLeg": "leg_right",
+	}
 
-    var headMeshPath string
-    if headMeshName == "cranium" {
-        headMeshPath = fmt.Sprintf("%s/assets/%s.obj", cdnURL, headMeshName)
-    } else {
-        headMeshPath = fmt.Sprintf("%s/uploads/%s.obj", cdnURL, headMeshName)
-    }
+	parts := struct {
+		m map[string]string
+	}{
+		m: map[string]string{
+			"Head":     userConfig.BodyParts.Head,
+			"Torso":    userConfig.BodyParts.Torso,
+			"LeftArm":  userConfig.BodyParts.LeftArm,
+			"RightArm": userConfig.BodyParts.RightArm,
+			"LeftLeg":  userConfig.BodyParts.LeftLeg,
+			"RightLeg": userConfig.BodyParts.RightLeg,
+		},
+	}
 
-    headMesh := s.cache.GetMesh(headMeshPath)
-    
-    if headMesh == nil {
-        log.Printf("Warning: Failed to load head mesh '%s'. Skipping.", headMeshName)
-    } else {
-        headObject := &aeno.Object{
-            Mesh:   headMesh.Copy(),
-            Color:  aeno.HexColor(userConfig.Colors["Head"]),
-            Matrix: aeno.Identity(),
-        }
-        headObject.Texture = s.AddFace(userConfig.Items.Face)
-        allObjects = append(allObjects, headObject)
-    }
+	for name, defaultMesh := range bodyPartDefaults {
+		meshName := parts.m[name]
 
-    bodyAndApparelObjects := s.Texturize(userConfig, config)
-    allObjects = append(allObjects, bodyAndApparelObjects...)
+		// Use the helper function to determine the correct path (asset or upload).
+		meshPath := s.getMeshPath(meshName, defaultMesh)
+		mesh := s.cache.GetMesh(meshPath)
 
-    if obj := s.RenderItem(userConfig.Items.Addon); obj != nil {
-        allObjects = append(allObjects, obj)
-    }
+		// If the mesh fails to load, log a warning and skip this part.
+		if mesh == nil {
+			log.Printf("Warning: Failed to load body part mesh for '%s' from '%s'. Skipping.", name, meshPath)
+			continue
+		}
 
-    for hatKey, hatItemData := range userConfig.Items.Hats {
-        if !hatKeyPattern.MatchString(hatKey) {
-            log.Printf("Warning: Invalid hat key format: '%s'. Skipping hat.\n", hatKey)
-            continue
-        }
-        if hatItemData.Item != "none" {
-            if obj := s.RenderItem(hatItemData); obj != nil {
-                allObjects = append(allObjects, obj)
-            }
-        }
-    }
+		// Create the renderable object for the body part.
+		bodyPartObject := &aeno.Object{
+			Mesh:   mesh.Copy(),
+			Color:  aeno.HexColor(userConfig.Colors[name]),
+			Matrix: aeno.Identity(),
+		}
 
-    return allObjects
-}
+		// Add the completed object to our list for rendering.
+		allObjects = append(allObjects, bodyPartObject)
+	}
 
-func (s *Server) Texturize(userConfig UserConfig, config RenderConfig) []*aeno.Object {
-    objects := []*aeno.Object{}
-    cdnURL := s.config.CDNURL 
+	// Here, we decide whether to render the normal left arm or the tool-holding arm.
+	if config.IncludeTool && userConfig.Items.Tool.Item != "none" {
+		// If a tool is equipped, find and remove the standard "LeftArm" from the list.
+		// It will be replaced by the appropriate tool-holding arm from the ToolClause function.
+		var found bool
+		for i, obj := range allObjects {
+			if obj.Mesh.Name() == s.getMeshPath(userConfig.BodyParts.LeftArm, "arm_left") {
+				allObjects = append(allObjects[:i], allObjects[i+1:]...)
+				found = true
+				break
+			}
+		}
+		if !found {
+			log.Printf("Warning: Could not find standard LeftArm to replace with tool arm.")
+		}
 
-    // Load meshes
-    torsoMesh := s.cache.GetMesh(s.getMeshPath(userConfig.BodyParts.Torso, "chesticle"))
-    rightArmMesh := s.cache.GetMesh(s.getMeshPath(userConfig.BodyParts.RightArm, "arm_right"))
-    leftLegMesh := s.cache.GetMesh(s.getMeshPath(userConfig.BodyParts.LeftLeg, "leg_left"))
-    rightLegMesh := s.cache.GetMesh(s.getMeshPath(userConfig.BodyParts.RightLeg, "leg_right"))
-    teeMesh := s.cache.GetMesh(fmt.Sprintf("%s/assets/tee.obj", cdnURL))
+		// Add the tool arm and the tool itself.
+		armAndToolObjects := s.ToolClause(
+			userConfig.Items.Tool,
+			userConfig.Items.ToolArm,
+			userConfig.Colors["LeftArm"],
+			userConfig.Items.Shirt,
+			config,
+			userConfig.BodyParts.LeftArm,
+		)
+		allObjects = append(allObjects, armAndToolObjects...)
+	}
 
-    if torsoMesh != nil {
-        torsoObj := &aeno.Object{Mesh: torsoMesh.Copy(), Color: aeno.HexColor(userConfig.Colors["Torso"]), Matrix: aeno.Identity()}
-        if userConfig.Items.Shirt.Item != "none" {
-            shirtHash := getTextureHash(userConfig.Items.Shirt)
-            shirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, shirtHash)
-            torsoObj.Texture = s.cache.GetTexture(shirtTextureURL)
-        }
-        objects = append(objects, torsoObj)
-    } else {
-        log.Printf("Warning: Failed to load torso mesh '%s'. Skipping.", userConfig.BodyParts.Torso)
-    }
-
-    if rightArmMesh != nil {
-        rightArmObj := &aeno.Object{Mesh: rightArmMesh.Copy(), Color: aeno.HexColor(userConfig.Colors["RightArm"]), Matrix: aeno.Identity()}
-        if userConfig.Items.Shirt.Item != "none" {
-            shirtHash := getTextureHash(userConfig.Items.Shirt)
-            shirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, shirtHash)
-            rightArmObj.Texture = s.cache.GetTexture(shirtTextureURL)
-        }
-        objects = append(objects, rightArmObj)
-    } else {
-        log.Printf("Warning: Failed to load right arm mesh '%s'. Skipping.", userConfig.BodyParts.RightArm)
-    }
-
-    if leftLegMesh != nil {
-        leftLegObj := &aeno.Object{Mesh: leftLegMesh.Copy(), Color: aeno.HexColor(userConfig.Colors["LeftLeg"]), Matrix: aeno.Identity()}
-        if userConfig.Items.Pants.Item != "none" {
-            pantsHash := getTextureHash(userConfig.Items.Pants)
-            pantsTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, pantsHash)
-            leftLegObj.Texture = s.cache.GetTexture(pantsTextureURL)
-        }
-        objects = append(objects, leftLegObj)
-    } else {
-        log.Printf("Warning: Failed to load left leg mesh '%s'. Skipping.", userConfig.BodyParts.LeftLeg)
-    }
-    
-    if rightLegMesh != nil {
-        rightLegObj := &aeno.Object{Mesh: rightLegMesh.Copy(), Color: aeno.HexColor(userConfig.Colors["RightLeg"]), Matrix: aeno.Identity()}
-        if userConfig.Items.Pants.Item != "none" {
-            pantsHash := getTextureHash(userConfig.Items.Pants)
-            pantsTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, pantsHash)
-            rightLegObj.Texture = s.cache.GetTexture(pantsTextureURL)
-        }
-        objects = append(objects, rightLegObj)
-    } else {
-        log.Printf("Warning: Failed to load right leg mesh '%s'. Skipping.", userConfig.BodyParts.RightLeg)
-    }
-
-    if userConfig.Items.Tshirt.Item != "none" && teeMesh != nil {
-        tshirtHash := getTextureHash(userConfig.Items.Tshirt)
-        tshirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, tshirtHash)
-        tshirtTexture := s.cache.GetTexture(tshirtTextureURL)
-        TshirtLoader := &aeno.Object{
-            Mesh:    teeMesh.Copy(),
-            Color:   aeno.Transparent,
-            Texture: tshirtTexture,
-            Matrix:  aeno.Identity(),
-        }
-        objects = append(objects, TshirtLoader)
-    } else if teeMesh == nil {
-        log.Printf("Warning: Failed to load default tee.obj for T-Shirt. Skipping.")
-    }
-
-    armObjects := s.ToolClause(
-        userConfig.Items.Tool,
-        userConfig.Items.ToolArm,
-        userConfig.Colors["LeftArm"],
-        userConfig.Items.Shirt,
-        config,
-        userConfig.BodyParts.LeftArm,
-    )
-    
-    objects = append(objects, armObjects...)
-    return objects
+	return allObjects
 }
 
 func (s *Server) generatePreview(config ItemConfig, renderConfig RenderConfig) []*aeno.Object {
