@@ -620,6 +620,19 @@ func (s *Server) generateObjects(userConfig UserConfig, config RenderConfig) []*
 		// Add the completed object to our list for rendering.
 		allObjects = append(allObjects, bodyPartObject)
 	}
+	if config.Items.Tshirt.Item != "none" {
+		teeMesh := s.cache.GetMesh(fmt.Sprintf("%s/assets/tee.obj", cdnURL))
+		tshirtHash := getTextureHash(config.Items.Tshirt)
+		tshirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, tshirtHash)
+		tshirtTexture := s.cache.GetTexture(tshirtTextureURL)
+		TshirtLoader := &aeno.Object{
+			Mesh:    teeMesh.Copy(),
+			Color:   aeno.Transparent,
+			Texture: tshirtTexture,
+			Matrix:  aeno.Identity(),
+		}
+		allObjects = append(objects, TshirtLoader)
+	}
 
 	// Here, we decide whether to render the normal left arm or the tool-holding arm.
 	if isToolEquipped {
