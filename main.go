@@ -25,7 +25,7 @@ import (
 const (
 	scale      = 1
 	fovy       = 15.0
-	near       = 1.0
+	near       = 0.1
 	far        = 1000
 	amb        = "b0b0b0"
 	lightcolor = "808080"
