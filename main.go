@@ -633,14 +633,14 @@ func (s *Server) generateObjects(userConfig UserConfig, config RenderConfig) []*
 		allObjects = append(allObjects, armAndToolObjects...)
 	}
 
-	if config.Items.Tshirt.Item != "none" {
+	if userConfig.Items.Tshirt.Item != "none" {
         teeMeshPath := fmt.Sprintf("%s/assets/tee.obj", cdnURL)
         teeMesh := s.cache.GetMesh(teeMeshPath)
 
         if teeMesh == nil {
             log.Printf("Warning: Failed to load t-shirt mesh from '%s'. Skipping.", teeMeshPath)
         } else {
-            tshirtHash := getTextureHash(config.Items.Tshirt)
+            tshirtHash := getTextureHash(userConfig.Items.Tshirt)
             tshirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, tshirtHash)
             tshirtTexture := s.cache.GetTexture(tshirtTextureURL)
             
