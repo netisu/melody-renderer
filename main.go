@@ -411,7 +411,7 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 
 	go func() {
 		defer wg.Done()
-		rootNode, isToolEquipped := s.buildCharacterTree(e.RenderJson, RenderConfig{IncludeTool: true})		
+		rootNode, _ := s.buildCharacterTree(e.RenderJson, RenderConfig{IncludeTool: true})		
 
 		var allObjects []*aeno.Object // This is the flat list the renderer needs
 		rootNode.Flatten(aeno.Identity(), &allObjects)
@@ -464,7 +464,7 @@ func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent, isPreview 
 	var allObjects []*aeno.Object
 	var outputKey string
 	if isPreview {
-		rootNode, isToolEquipped := s.generatePreview(i.RenderJson, RenderConfig{IncludeTool: true})
+		rootNode, _ := s.generatePreview(i.RenderJson, RenderConfig{IncludeTool: true})
 		rootNode.Flatten(aeno.Identity(), &allObjects)
 		if i.RenderJson.PathMod {
 			outputKey = path.Join("thumbnails", i.Hash+"_preview.png")
