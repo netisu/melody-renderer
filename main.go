@@ -209,7 +209,7 @@ func (n *SceneNode) FindNodeByName(name string) *SceneNode {
 }
 
 func (n *SceneNode) Flatten(parentMatrix aeno.Matrix, objects *[]*aeno.Object) {
-	worldMatrix := parentMatrix.Multiply(n.LocalMatrix)
+	worldMatrix := parentMatrix.Mul(n.LocalMatrix)
 
 	if n.Object != nil {
 		n.Object.Matrix = worldMatrix
@@ -416,7 +416,7 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 			if leftShoulder := rootNode.FindNodeByName("LeftArm"); leftShoulder != nil {
 				// TODO: when i get on my windows pc, find the correct axis and angle
 				rotation := aeno.Rotate(aeno.V(1, 0, 0), math.Pi/2) // 90 degrees on X-axis
-				leftShoulder.LocalMatrix = leftShoulder.LocalMatrix.Multiply(rotation)
+				leftShoulder.LocalMatrix = leftShoulder.LocalMatrix.Mul(rotation)
 			}
 		}
 
