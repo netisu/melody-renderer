@@ -415,7 +415,7 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 			// Find the node named "LeftArm" (which is our shoulder joint)
 			if leftShoulder := rootNode.FindNodeByName("LeftArm"); leftShoulder != nil {
 				// TODO: when i get on my windows pc, find the correct axis and angle
-				rotation := aeno.Rotate(aeno.V(3, 0, 0), math.Pi/2) // 90 degrees on X-axis
+				rotation := aeno.Rotate(aeno.V(0, 0, 0), math.Pi/2) // 90 degrees on X-axis
 				leftShoulder.LocalMatrix = leftShoulder.LocalMatrix.Mul(rotation)
 			}
 		}
@@ -767,35 +767,22 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 	leftArmNode := NewSceneNode("LeftArm", nil, leftArmJointMatrix) // This is the node you will rotate!
 	torsoNode.AddChild(leftArmNode)
 
-	if isToolEquipped {
-		var shirtTexture aeno.Texture
+	meshPath := s.getMeshPath(parts["LeftArm"], bodyPartDefaults["LeftArm"])
+	mesh := s.cache.GetMesh(meshPath)
+	if mesh != nil {
+		leftArmObj := &aeno.Object{
+			Mesh:   mesh.Copy(),
+			Color:  aeno.HexColor(userConfig.Colors["LeftArm"]),
+			Matrix: aeno.Identity(),
+		}
 		if userConfig.Items.Shirt.Item != "none" {
 			shirtHash := getTextureHash(userConfig.Items.Shirt)
 			textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, shirtHash)
-			shirtTexture = s.cache.GetTexture(textureURL)
+			leftArmObj.Texture = s.cache.GetTexture(textureURL)
 		}
 
-		toolArmMeshName := userConfig.BodyParts.ToolArm
-		var toolArmPath string
-		if toolArmMeshName != "" && toolArmMeshName != "arm_tool" {
-			toolArmPath = fmt.Sprintf("%s/uploads/%s.obj", cdnURL, toolArmMeshName)
-		} else {
-			toolArmPath = fmt.Sprintf("%s/assets/arm_tool.obj", cdnURL)
-		}
-		toolArmMesh := s.cache.GetMesh(toolArmPath)
-
-		if toolArmMesh != nil {
-			toolArmObj := &aeno.Object{
-				Mesh:    toolArmMesh.Copy(),
-				Color:   aeno.HexColor(userConfig.Colors["LeftArm"]),
-				Texture: shirtTexture,
-				Matrix:  aeno.Identity(),
-			}
-			// Arm mesh is parented to the joint
-			toolArmNode := NewSceneNode("ToolArmMesh", toolArmObj, aeno.Identity())
-			leftArmNode.AddChild(toolArmNode) // Parent arm to shoulder
-
-			// Load the tool (Child of the Tool Arm)
+		if isToolEquipped {
+			// Load the tool (Child of the Left Arm)
 			if toolObj := s.RenderItem(userConfig.Items.Tool); toolObj != nil {
 				toolMatrix := aeno.Translate(aeno.V(0, 0, 0)) // COMPLETE guesstimate
 				toolNode := NewSceneNode("Tool", toolObj, toolMatrix)
@@ -804,27 +791,11 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 		} else {
 			log.Printf("Warning: Failed to load tool arm mesh from '%s'.", toolArmPath)
 		}
-
+		// Arm mesh is parented to the joint
+		leftArmMeshNode := NewSceneNode("LeftArmMesh", leftArmObj, aeno.Identity())
+		leftArmNode.AddChild(leftArmMeshNode)
 	} else {
-		meshPath := s.getMeshPath(parts["LeftArm"], bodyPartDefaults["LeftArm"])
-		mesh := s.cache.GetMesh(meshPath)
-		if mesh != nil {
-			leftArmObj := &aeno.Object{
-				Mesh:   mesh.Copy(),
-				Color:  aeno.HexColor(userConfig.Colors["LeftArm"]),
-				Matrix: aeno.Identity(),
-			}
-			if userConfig.Items.Shirt.Item != "none" {
-				shirtHash := getTextureHash(userConfig.Items.Shirt)
-				textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, shirtHash)
-				leftArmObj.Texture = s.cache.GetTexture(textureURL)
-			}
-			// Arm mesh is parented to the joint
-			leftArmMeshNode := NewSceneNode("LeftArmMesh", leftArmObj, aeno.Identity())
-			leftArmNode.AddChild(leftArmMeshNode)
-		} else {
-			log.Printf("Warning: Failed to load LeftArm mesh from '%s'.", meshPath)
-		}
+		log.Printf("Warning: Failed to load LeftArm mesh from '%s'.", meshPath)
 	}
 
 	// 7. Load T-Shirt (Child of Torso)
