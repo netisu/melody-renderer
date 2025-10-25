@@ -739,7 +739,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 			// Load the tool (Child of the Left Arm)
 			if toolObj := s.RenderItem(userConfig.Items.Tool); toolObj != nil {
 				toolNode := NewSceneNode("Tool", toolObj, aeno.Identity())
-				leftArmMeshNode.AddChild(toolNode) // Parent tool to the arm
+				torsoNode.AddChild(toolNode) // Parent tool to the arm
 			}
 		} else {
 			log.Printf("Warning: Failed to load tool arm mesh from '%s'.", meshPath)
