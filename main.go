@@ -785,11 +785,11 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 			// Load the tool (Child of the Left Arm)
 			if toolObj := s.RenderItem(userConfig.Items.Tool); toolObj != nil {
 				toolMatrix := aeno.Translate(aeno.V(0, 0, 0)) // COMPLETE guesstimate
-				toolNode := NewSceneNode("Tool", toolObj, toolMatrix)
+				toolNode := NewSceneNode("Tool", leftArmObj, toolMatrix)
 				toolArmNode.AddChild(toolNode) // Parent tool to the arm
 			}
 		} else {
-			log.Printf("Warning: Failed to load tool arm mesh from '%s'.", toolArmPath)
+			log.Printf("Warning: Failed to load tool arm mesh from '%s'.", meshPath)
 		}
 		// Arm mesh is parented to the joint
 		leftArmMeshNode := NewSceneNode("LeftArmMesh", leftArmObj, aeno.Identity())
