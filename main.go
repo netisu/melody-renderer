@@ -682,13 +682,13 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 			Matrix:  aeno.Identity(),
 		}
 
-		headMatrix := aeno.Translate(aeno.V(0, 1.5, 0)) // guesstimate: (0, 1.5, 0)
+		headMatrix := aeno.Translate(aeno.V(0, 0, 0)) // guesstimate: (0, 1.5, 0)
 		headNode = NewSceneNode("Head", headObj, headMatrix)
 		torsoNode.AddChild(headNode)
 
 	} else {
 		log.Printf("Warning: Failed to load head mesh from '%s'.", headMeshPath)
-		headMatrix := aeno.Translate(aeno.V(0, 1.5, 0)) // guesstimate
+		headMatrix := aeno.Translate(aeno.V(0, 0, 0)) // guesstimate
 		headNode = NewSceneNode("Head", nil, headMatrix)
 		torsoNode.AddChild(headNode)
 	}
