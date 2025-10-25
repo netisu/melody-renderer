@@ -883,7 +883,7 @@ func (s *Server) generatePreview(config ItemConfig, renderConfig RenderConfig) [
 	default:
 		fmt.Printf("generatePreview: Unhandled item type '%s'. Showing default avatar.\n", config.ItemType)
 	}
-	return s.generateObjects(previewConfig, renderConfig)
+	return s.buildCharacterTree(previewConfig, renderConfig)
 }
 
 func (s *Server) AddFace(faceData ItemData) aeno.Texture {
