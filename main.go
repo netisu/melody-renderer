@@ -422,7 +422,7 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 			&buffer,
 			allObjects,
 			eye, center, up, fovy,
-			Dimentions, scale, light, amb, lightcolor, near, far, false, // This true actually decides if all objects are fit into a bounding box or not.
+			Dimentions, scale, light, amb, lightcolor, near, far, true, // This true actually decides if all objects are fit into a bounding box or not.
 		)
 
 		s.uploadToS3(buffer.Bytes(), outputKey)
