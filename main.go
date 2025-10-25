@@ -411,16 +411,7 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 
 	go func() {
 		defer wg.Done()
-		rootNode, isToolEquipped := s.buildCharacterTree(e.RenderJson, RenderConfig{IncludeTool: true})		
-		
-		if isToolEquipped {
-			// Find the node named "LeftArm" (which is our shoulder joint)
-			if leftShoulder := rootNode.FindNodeByName("LeftArm"); leftShoulder != nil {
-				// TODO: when i get on my windows pc, find the correct axis and angle
-				rotation := aeno.Rotate(aeno.V(90, 0, 0), math.Pi/2)
-				leftShoulder.LocalMatrix = rotation.Mul(leftShoulder.LocalMatrix)
-			}
-		}
+		rootNode, _ := s.buildCharacterTree(e.RenderJson, RenderConfig{IncludeTool: true})		
 
 		var allObjects []*aeno.Object // This is the flat list the renderer needs
 		rootNode.Flatten(aeno.Identity(), &allObjects)
@@ -473,13 +464,7 @@ func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent, isPreview 
 	var allObjects []*aeno.Object
 	var outputKey string
 	if isPreview {
-		rootNode, isToolEquipped := s.generatePreview(i.RenderJson, RenderConfig{IncludeTool: true})
-		if isToolEquipped {
-    		if leftShoulder := rootNode.FindNodeByName("LeftArm"); leftShoulder != nil {
-        		rotation := aeno.Rotate(aeno.V(90, 0, 0), math.Pi/2)
-        		leftShoulder.LocalMatrix = rotation.Mul(leftShoulder.LocalMatrix)
-    		}
-		}
+		rootNode, _ := s.generatePreview(i.RenderJson, RenderConfig{IncludeTool: true})
 		rootNode.Flatten(aeno.Identity(), &allObjects)
 		if i.RenderJson.PathMod {
 			outputKey = path.Join("thumbnails", i.Hash+"_preview.png")
