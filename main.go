@@ -787,8 +787,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 		if isToolEquipped {
 			// Load the tool (Child of the Left Arm)
 			if toolObj := s.RenderItem(userConfig.Items.Tool); toolObj != nil {
-				toolMatrix := aeno.Translate(aeno.V(0, 0, 0)) // COMPLETE guesstimate
-				toolNode := NewSceneNode("Tool", toolObj, toolMatrix)
+				toolNode := NewSceneNode("Tool", toolObj, aeno.Identity())
 				leftArmMeshNode.AddChild(toolNode) // Parent tool to the arm
 			}
 		} else {
