@@ -468,10 +468,17 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 
 func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent, isPreview bool) {
 	start := time.Now()
-	var objects []*aeno.Object
+	var allObjects []*aeno.Object
 	var outputKey string
 	if isPreview {
-		objects = s.generatePreview(i.RenderJson, RenderConfig{IncludeTool: true})
+		rootNode, isToolEquipped := s.generatePreview(i.RenderJson, RenderConfig{IncludeTool: true})
+		if isToolEquipped {
+    		if leftShoulder := rootNode.FindNodeByName("LeftArm"); leftShoulder != nil {
+        		rotation := aeno.Rotate(aeno.V(1, 0, 0), math.Pi/2)
+        		leftShoulder.LocalMatrix = leftShoulder.LocalMatrix.Mul(rotation)
+    		}
+		}
+		rootNode.Flatten(aeno.Identity(), &allObjects)
 		if i.RenderJson.PathMod {
 			outputKey = path.Join("thumbnails", i.Hash+"_preview.png")
 		} else {
@@ -479,12 +486,12 @@ func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent, isPreview 
 		}
 	} else {
 		if renderedObject := s.RenderItem(i.RenderJson.Item); renderedObject != nil {
-			objects = []*aeno.Object{renderedObject}
+			allObjects = []*aeno.Object{renderedObject}
 		}
 		outputKey = path.Join("thumbnails", i.Hash+".png")
 	}
 
-	if len(objects) == 0 {
+	if len(allObjects) == 0 {
 		http.Error(w, "No objects to render for this item", http.StatusBadRequest)
 		return
 	}
@@ -492,7 +499,7 @@ func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent, isPreview 
 	var buffer bytes.Buffer
 	aeno.GenerateSceneToWriter(
 		&buffer,
-		objects,
+		allObjects,
 		eye, center, up, fovy,
 		Dimentions, scale, light, amb, lightcolor, near, far, true,
 	)
