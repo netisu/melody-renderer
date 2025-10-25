@@ -763,6 +763,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 	}
 
 	// --- Left Arm (Complex case with Tool) ---
+	var leftArmJointMatrix aeno.Matrix
 	if isToolEquipped {
 		leftArmJointMatrix := aeno.Translate(aeno.V(0, -5.26, 5.22)) // guesstimate
 	} else {
