@@ -735,17 +735,18 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 		// Arm mesh is parented to the joint
 		leftArmMeshNode := NewSceneNode("LeftArmMesh", leftArmObj, aeno.Identity())
 		leftArmNode.AddChild(leftArmMeshNode)
-		if isToolEquipped {
-			// Load the tool (Child of the Left Arm)
-			if toolObj := s.RenderItem(userConfig.Items.Tool); toolObj != nil {
-				toolNode := NewSceneNode("Tool", toolObj, aeno.Identity())
-				torsoNode.AddChild(toolNode) // Parent tool to the arm
-			}
-		} else {
-			log.Printf("Warning: Failed to load tool arm mesh from '%s'.", meshPath)
-		}
 	} else {
 		log.Printf("Warning: Failed to load LeftArm mesh from '%s'.", meshPath)
+	}
+
+	if isToolEquipped {
+		// Load the tool (Child of the Left Arm)
+		if toolObj := s.RenderItem(userConfig.Items.Tool); toolObj != nil {
+			toolNode := NewSceneNode("Tool", toolObj, aeno.Identity())
+			leftArmNode.AddChild(toolNode) // Parent tool to the arm
+		}
+	} else {
+		log.Printf("Warning: Failed to load tool arm mesh from '%s'.", meshPath)
 	}
 
 	// 7. Load T-Shirt (Child of Torso)
