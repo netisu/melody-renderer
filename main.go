@@ -415,7 +415,7 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 			// Find the node named "LeftArm" (which is our shoulder joint)
 			if leftShoulder := rootNode.FindNodeByName("LeftArm"); leftShoulder != nil {
 				// TODO: when i get on my windows pc, find the correct axis and angle
-				rotation := aeno.Rotate(aeno.V(-90, 0, 0))
+				rotation := aeno.Rotate(aeno.V(-90, 0, 0), math.Pi/2)
 				leftShoulder.LocalMatrix = leftShoulder.LocalMatrix.Mul(rotation)
 			}
 		}
