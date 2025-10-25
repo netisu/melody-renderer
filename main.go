@@ -765,9 +765,9 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 	// --- Left Arm (Complex case with Tool) ---
 	var leftArmJointMatrix aeno.Matrix
 	if isToolEquipped {
-		leftArmJointMatrix := aeno.Translate(aeno.V(0, -5.26, 5.22)) // guesstimate
+		leftArmJointMatrix = aeno.Translate(aeno.V(0, -5.26, 5.22)) // guesstimate
 	} else {
-		leftArmJointMatrix := aeno.Translate(aeno.V(0, 0, 0)) // guesstimate
+		leftArmJointMatrix = aeno.Translate(aeno.V(0, 0, 0)) // guesstimate
 
 	}
 	leftArmNode := NewSceneNode("LeftArm", nil, leftArmJointMatrix) // This is the node you will rotate!
