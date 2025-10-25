@@ -415,7 +415,7 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 			// Find the node named "LeftArm" (which is our shoulder joint)
 			if leftShoulder := rootNode.FindNodeByName("LeftArm"); leftShoulder != nil {
 				// TODO: when i get on my windows pc, find the correct axis and angle
-				rotation := aeno.Rotate(aeno.V(1.5, 0, 0), math.Pi/2) // 90 degrees on X-axis
+				rotation := aeno.Rotate(aeno.V(-90, 0, 0))
 				leftShoulder.LocalMatrix = leftShoulder.LocalMatrix.Mul(rotation)
 			}
 		}
@@ -763,7 +763,12 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 	}
 
 	// --- Left Arm (Complex case with Tool) ---
-	leftArmJointMatrix := aeno.Translate(aeno.V(0, 0, 0)) // guesstimate
+	if isToolEquipped {
+		leftArmJointMatrix := aeno.Translate(aeno.V(0, -5.26, 5.22)) // guesstimate
+	} else {
+		leftArmJointMatrix := aeno.Translate(aeno.V(0, 0, 0)) // guesstimate
+
+	}
 	leftArmNode := NewSceneNode("LeftArm", nil, leftArmJointMatrix) // This is the node you will rotate!
 	torsoNode.AddChild(leftArmNode)
 
