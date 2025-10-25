@@ -710,8 +710,8 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 	// 5. Load Legs (Children of Torso)
 	// These are offsets for the hip joints.
 	legOffsets := map[string]aeno.Vector{
-		"LeftLeg":  aeno.V(0.4, -0.1, 0), // guesstimate
-		"RightLeg": aeno.V(-0.4, -0.1, 0), // guesstimate
+		"LeftLeg":  aeno.V(0, 0, 0), // guesstimate
+		"RightLeg": aeno.V(0, 0, 0), // guesstimate
 	}
 	for _, name := range []string{"LeftLeg", "RightLeg"} {
 		meshPath := s.getMeshPath(parts[name], bodyPartDefaults[name])
@@ -738,7 +738,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 	}
 
 
-	rightArmJointMatrix := aeno.Translate(aeno.V(1, 0, 0)) // change as its a gusstimate....
+	rightArmJointMatrix := aeno.Translate(aeno.V(0, 0, 0)) // change as its a gusstimate....
 	rightArmNode := NewSceneNode("RightArm", nil, rightArmJointMatrix) // This is the node you would rotate
 	torsoNode.AddChild(rightArmNode)
 
@@ -763,7 +763,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 	}
 
 	// --- Left Arm (Complex case with Tool) ---
-	leftArmJointMatrix := aeno.Translate(aeno.V(0.75, 1.2, 0)) // guesstimate
+	leftArmJointMatrix := aeno.Translate(aeno.V(0, 0, 0)) // guesstimate
 	leftArmNode := NewSceneNode("LeftArm", nil, leftArmJointMatrix) // This is the node you will rotate!
 	torsoNode.AddChild(leftArmNode)
 
@@ -797,7 +797,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 
 			// Load the tool (Child of the Tool Arm)
 			if toolObj := s.RenderItem(userConfig.Items.Tool); toolObj != nil {
-				toolMatrix := aeno.Translate(aeno.V(0, -1.8, 0.2)) // COMPLETE guesstimate
+				toolMatrix := aeno.Translate(aeno.V(0, 0, 0)) // COMPLETE guesstimate
 				toolNode := NewSceneNode("Tool", toolObj, toolMatrix)
 				toolArmNode.AddChild(toolNode) // Parent tool to the arm
 			}
