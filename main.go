@@ -786,7 +786,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 			if toolObj := s.RenderItem(userConfig.Items.Tool); toolObj != nil {
 				toolMatrix := aeno.Translate(aeno.V(0, 0, 0)) // COMPLETE guesstimate
 				toolNode := NewSceneNode("Tool", leftArmObj, toolMatrix)
-				toolArmNode.AddChild(toolNode) // Parent tool to the arm
+				leftArmMeshNode.AddChild(toolNode) // Parent tool to the arm
 			}
 		} else {
 			log.Printf("Warning: Failed to load tool arm mesh from '%s'.", meshPath)
