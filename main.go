@@ -852,7 +852,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 	return rootNode, isToolEquipped
 }
 
-func (s *Server) generatePreview(config ItemConfig, renderConfig RenderConfig) []*aeno.Object {
+func (s *Server) generatePreview(config ItemConfig, renderConfig RenderConfig) (*SceneNode, bool) {
 	fmt.Printf("generatePreview: Starting for ItemType: %s, Item: %+v\n", config.ItemType, config.Item)
 
 	previewConfig := useDefault
