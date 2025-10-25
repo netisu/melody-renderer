@@ -416,7 +416,7 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 			if leftShoulder := rootNode.FindNodeByName("LeftArm"); leftShoulder != nil {
 				// TODO: when i get on my windows pc, find the correct axis and angle
 				rotation := aeno.Rotate(aeno.V(90, 0, 0), math.Pi/2)
-				leftShoulder.LocalMatrix = leftShoulder.LocalMatrix.Mul(rotation)
+				leftShoulder.LocalMatrix = rotation.Mul(leftShoulder.LocalMatrix)
 			}
 		}
 
@@ -474,8 +474,8 @@ func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent, isPreview 
 		rootNode, isToolEquipped := s.generatePreview(i.RenderJson, RenderConfig{IncludeTool: true})
 		if isToolEquipped {
     		if leftShoulder := rootNode.FindNodeByName("LeftArm"); leftShoulder != nil {
-        		rotation := aeno.Rotate(aeno.V(1, 0, 0), math.Pi/2)
-        		leftShoulder.LocalMatrix = leftShoulder.LocalMatrix.Mul(rotation)
+        		rotation := aeno.Rotate(aeno.V(90, 0, 0), math.Pi/2)
+        		leftShoulder.LocalMatrix = rotation.Mul(leftShoulder.LocalMatrix)
     		}
 		}
 		rootNode.Flatten(aeno.Identity(), &allObjects)
@@ -575,48 +575,6 @@ func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
 		Texture: s.cache.GetTexture(textureURL),
 		Matrix:  aeno.Identity(),
 	}
-}
-
-func (s *Server) ToolClause(toolData ItemData, toolArmMeshName string, leftArmColor string, shirtData ItemData, config RenderConfig) []*aeno.Object {
-	objects := []*aeno.Object{}
-	cdnURL := s.config.CDNURL
-	var shirtTexture aeno.Texture
-	if shirtData.Item != "none" {
-		shirtHash := getTextureHash(shirtData)
-		textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, shirtHash)
-		shirtTexture = s.cache.GetTexture(textureURL)
-	}
-	
-	if config.IncludeTool {
-		var toolArmPath string
-		// If a custom tool arm is specified (and it's not the default placeholder name), use it.
-		if toolArmMeshName != "" && toolArmMeshName != "arm_tool" {
-			toolArmPath = fmt.Sprintf("%s/uploads/%s.obj", cdnURL, toolArmMeshName)
-		} else {
-			// Otherwise, use the default asset.
-			toolArmPath = fmt.Sprintf("%s/assets/arm_tool.obj", cdnURL)
-		}
-		armMesh := s.cache.GetMesh(toolArmPath)
-
-		if toolObj := s.RenderItem(toolData); toolObj != nil {
-			objects = append(objects, toolObj)
-		}
-
-		if armMesh == nil {
-			log.Printf("Warning: Failed to load tool arm mesh from '%s'. Skipping arm.", toolArmPath)
-			return objects
-		}
-
-		armObject := &aeno.Object{
-			Mesh:    armMesh.Copy(),
-			Color:   aeno.HexColor(leftArmColor),
-			Texture: shirtTexture,
-			Matrix:  aeno.Identity(),
-		}
-		objects = append(objects, armObject)
-	}
-	
-	return objects
 }
 
 func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) (*SceneNode, bool) {
