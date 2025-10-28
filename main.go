@@ -554,13 +554,13 @@ func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
         log.Printf("Error: Could not render item because its mesh failed to load from %s", meshURL)
         return nil
     }
-	
+	newMesh := finalMesh.Copy()
 	// OPTIMIZATION: Use the cache
 	return &aeno.Object{
-		Mesh:    finalMesh.Copy(),
+		Mesh:    newMesh,
 		Color:   aeno.Transparent,
 		Texture: s.cache.GetTexture(textureURL),
-		Matrix:  finalMesh.matrix,
+		Matrix:  newMesh.matrix,
 	}
 }
 
