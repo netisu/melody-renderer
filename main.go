@@ -150,10 +150,8 @@ var useDefault UserConfig = UserConfig{
 // hatKeyPattern is a regular expression to match keys like "hat_1", "hat_123", etc.
 var hatKeyPattern = regexp.MustCompile(`^hat_\d+$`)
 var shoulderJointOffset = aeno.V(0, 0, 0) 
-var leftarmEquippedPose = aeno.Translate(aeno.V(0.0, -5.2, 5.21)).
-    Mul(aeno.Rotate(aeno.V(1, 0, 0), -90 * math.Pi/180)).
-    Mul(aeno.Rotate(aeno.V(0, 1, 0), 0.0)).                
-    Mul(aeno.Rotate(aeno.V(0, 0, 1), 0.0))
+var leftarmEquippedPose = aeno.Translate(aeno.V(0, -5.290632, 5.225405)).
+    Mul(aeno.Rotate(aeno.V(-90, 0, 0), math.Pi/2)).
 // Holds all environment variables, loaded once at startup.
 type Config struct {
 	PostKey       string
