@@ -737,7 +737,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 	} else {
 		log.Printf("Warning: Failed to load LeftArm mesh from '%s'.", meshPath)
 	}
-
+	var detachedToolNode *SceneNode
 	if isToolEquipped {
 		// Load the tool (Child of the Left Arm)
 		if toolObj := s.RenderItem(userConfig.Items.Tool); toolObj != nil {
