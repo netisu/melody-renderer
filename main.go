@@ -12,7 +12,6 @@ import (
 	"regexp"
 	"sync"
 	"time"
-	"math"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -69,12 +68,7 @@ type ItemEvent struct {
 	Hash       string     `json:"Hash"`
 	RenderJson ItemConfig `json:"RenderJson"` // Use interface{} for flexibility
 }
-type SceneNode struct {
-	Name        string
-	Object      *aeno.Object // The renderable object (can be nil for empty joints)
-	LocalMatrix aeno.Matrix  // Transformation relative to the parent
-	Children    []*SceneNode
-}
+
 type HatsCollection map[string]ItemData
 
 type UserConfig struct {
@@ -180,45 +174,6 @@ func NewAssetCache() *AssetCache {
 	return &AssetCache{
 		meshes:   make(map[string]*aeno.Mesh),
 		textures: make(map[string]aeno.Texture),
-	}
-}
-
-func NewSceneNode(name string, obj *aeno.Object, matrix aeno.Matrix) *SceneNode {
-	return &SceneNode{
-		Name:        name,
-		Object:      obj,
-		LocalMatrix: matrix,
-		Children:    make([]*SceneNode, 0),
-	}
-}
-func (n *SceneNode) AddChild(child *SceneNode) {
-	n.Children = append(n.Children, child)
-}
-
-// FindNodeByName recursively searches the tree for a node by its name.
-func (n *SceneNode) FindNodeByName(name string) *SceneNode {
-	if n.Name == name {
-		return n
-	}
-	for _, child := range n.Children {
-		if found := child.FindNodeByName(name); found != nil {
-			return found
-		}
-	}
-	return nil
-}
-
-func (n *SceneNode) Flatten(parentMatrix aeno.Matrix, objects *[]*aeno.Object) {
-	worldMatrix := parentMatrix.Mul(n.LocalMatrix)
-
-	if n.Object != nil {
-		n.Object.Matrix = worldMatrix
-		*objects = append(*objects, n.Object)
-	}
-
-	// Recursively do the same for all children.
-	for _, child := range n.Children {
-		child.Flatten(worldMatrix, objects)
 	}
 }
 
@@ -401,7 +356,7 @@ func (s *Server) handleRender(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// not so new now lol
+// --- NEW: CONCURRENT User Render Handler ---
 func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 	start := time.Now()
 	var wg sync.WaitGroup
@@ -409,25 +364,13 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 
 	go func() {
 		defer wg.Done()
-		rootNode, isToolEquipped := s.buildCharacterTree(e.RenderJson, RenderConfig{IncludeTool: true})		
-		
-		if isToolEquipped {
-			// Find the node named "LeftArm" (which is our shoulder joint)
-			if leftShoulder := rootNode.FindNodeByName("LeftArm"); leftShoulder != nil {
-				// TODO: when i get on my windows pc, find the correct axis and angle
-				rotation := aeno.Rotate(aeno.V(0, 0, 0), math.Pi/2) // 90 degrees on X-axis
-				leftShoulder.LocalMatrix = leftShoulder.LocalMatrix.Mul(rotation)
-			}
-		}
-
-		var allObjects []*aeno.Object // This is the flat list the renderer needs
-		rootNode.Flatten(aeno.Identity(), &allObjects)
-
+		objects := s.generateObjects(e.RenderJson, RenderConfig{IncludeTool: true})
 		outputKey := path.Join("thumbnails", e.Hash+".png")
+		
 		var buffer bytes.Buffer
 		aeno.GenerateSceneToWriter(
 			&buffer,
-			allObjects,
+			objects,
 			eye, center, up, fovy,
 			Dimentions, scale, light, amb, lightcolor, near, far, true, // This true actually decides if all objects are fit into a bounding box or not.
 		)
@@ -443,16 +386,13 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 			headshot_center = aeno.V(-0.5, 6.8, 0)
 			headshot_up     = aeno.V(0, 4, 0)
 		)
-		rootNode, _ := s.buildCharacterTree(e.RenderJson, RenderConfig{IncludeTool: false})
-		var allObjects []*aeno.Object
-		rootNode.Flatten(aeno.Identity(), &allObjects)
-		
+		objects := s.generateObjects(e.RenderJson, RenderConfig{IncludeTool: false})
 		outputKey := path.Join("thumbnails", e.Hash+"_headshot.png")
 
 		var buffer bytes.Buffer
 		aeno.GenerateSceneToWriter(
 			&buffer,
-			allObjects,
+			objects,
 			headshot_eye, headshot_center, headshot_up, headshot_fovy,
 			Dimentions, scale, light, amb, lightcolor, near, far, false,
 		)
@@ -468,17 +408,10 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 
 func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent, isPreview bool) {
 	start := time.Now()
-	var allObjects []*aeno.Object
+	var objects []*aeno.Object
 	var outputKey string
 	if isPreview {
-		rootNode, isToolEquipped := s.generatePreview(i.RenderJson, RenderConfig{IncludeTool: true})
-		if isToolEquipped {
-    		if leftShoulder := rootNode.FindNodeByName("LeftArm"); leftShoulder != nil {
-        		rotation := aeno.Rotate(aeno.V(1, 0, 0), math.Pi/2)
-        		leftShoulder.LocalMatrix = leftShoulder.LocalMatrix.Mul(rotation)
-    		}
-		}
-		rootNode.Flatten(aeno.Identity(), &allObjects)
+		objects = s.generatePreview(i.RenderJson, RenderConfig{IncludeTool: true})
 		if i.RenderJson.PathMod {
 			outputKey = path.Join("thumbnails", i.Hash+"_preview.png")
 		} else {
@@ -486,12 +419,12 @@ func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent, isPreview 
 		}
 	} else {
 		if renderedObject := s.RenderItem(i.RenderJson.Item); renderedObject != nil {
-			allObjects = []*aeno.Object{renderedObject}
+			objects = []*aeno.Object{renderedObject}
 		}
 		outputKey = path.Join("thumbnails", i.Hash+".png")
 	}
 
-	if len(allObjects) == 0 {
+	if len(objects) == 0 {
 		http.Error(w, "No objects to render for this item", http.StatusBadRequest)
 		return
 	}
@@ -499,7 +432,7 @@ func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent, isPreview 
 	var buffer bytes.Buffer
 	aeno.GenerateSceneToWriter(
 		&buffer,
-		allObjects,
+		objects,
 		eye, center, up, fovy,
 		Dimentions, scale, light, amb, lightcolor, near, far, true,
 	)
@@ -619,19 +552,9 @@ func (s *Server) ToolClause(toolData ItemData, toolArmMeshName string, leftArmCo
 	return objects
 }
 
-func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) (*SceneNode, bool) {
+func (s *Server) generateObjects(userConfig UserConfig, config RenderConfig) []*aeno.Object {
 	cdnURL := s.config.CDNURL
-	isToolEquipped := config.IncludeTool && userConfig.Items.Tool.Item != "none"
-
-	parts := map[string]string{
-		"Head":     userConfig.BodyParts.Head,
-		"Torso":    userConfig.BodyParts.Torso,
-		"LeftArm":  userConfig.BodyParts.LeftArm,
-		"RightArm": userConfig.BodyParts.RightArm,
-		"LeftLeg":  userConfig.BodyParts.LeftLeg,
-		"RightLeg": userConfig.BodyParts.RightLeg,
-	}
-	// This map holds the *default* mesh names
+	var allObjects []*aeno.Object
 	bodyPartDefaults := map[string]string{
 		"Head":     "cranium",
 		"Torso":    "chesticle",
@@ -641,196 +564,116 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 		"RightLeg": "leg_right",
 	}
 
-	// Create the root node for the character
-	rootNode := NewSceneNode("Character", nil, aeno.Identity())
-
-	// Load Torso (This is the central part of the body)
-	torsoMeshPath := s.getMeshPath(parts["Torso"], bodyPartDefaults["Torso"])
-	torsoMesh := s.cache.GetMesh(torsoMeshPath)
-	if torsoMesh == nil {
-		log.Printf("CRITICAL: Failed to load Torso mesh from '%s'. Aborting tree build.", torsoMeshPath)
-		return rootNode, isToolEquipped // Return an empty tree
+	parts := struct {
+		m map[string]string
+	}{
+		m: map[string]string{
+			"Head":     userConfig.BodyParts.Head,
+			"Torso":    userConfig.BodyParts.Torso,
+			"LeftArm":  userConfig.BodyParts.LeftArm,
+			"RightArm": userConfig.BodyParts.RightArm,
+			"LeftLeg":  userConfig.BodyParts.LeftLeg,
+			"RightLeg": userConfig.BodyParts.RightLeg,
+		},
 	}
+	
+	isToolEquipped := config.IncludeTool && userConfig.Items.Tool.Item != "none"
 
-	torsoObj := &aeno.Object{
-		Mesh:   torsoMesh.Copy(),
-		Color:  aeno.HexColor(userConfig.Colors["Torso"]),
-		Matrix: aeno.Identity(), // Will be set by Flatten()
-	}
-	// Apply shirt texture to Torso
-	if userConfig.Items.Shirt.Item != "none" {
-		shirtHash := getTextureHash(userConfig.Items.Shirt)
-		textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, shirtHash)
-		torsoObj.Texture = s.cache.GetTexture(textureURL)
-	}
+	for name, defaultMesh := range bodyPartDefaults {
+		
+		if name == "LeftArm" && isToolEquipped {
+			continue // Skip to the next body part in the loop
+		}
+		// Use the helper function to determine the correct path (asset or upload).
+		meshPath := s.getMeshPath(parts.m[name], defaultMesh)
+		mesh := s.cache.GetMesh(meshPath)
 
-	// Add the Torso to the root node. We assume the Torso is at the origin.
-	torsoNode := NewSceneNode("Torso", torsoObj, aeno.Identity())
-	rootNode.AddChild(torsoNode)
-
-	// --- Children of Torso ---
-
-	// 3. Load Head (Child of Torso)
-	headMeshPath := s.getMeshPath(parts["Head"], bodyPartDefaults["Head"])
-	headMesh := s.cache.GetMesh(headMeshPath)
-	var headNode *SceneNode // Declare headNode so we can add hats to it
-	if headMesh != nil {
-		headObj := &aeno.Object{
-			Mesh:    headMesh.Copy(),
-			Color:   aeno.HexColor(userConfig.Colors["Head"]),
-			Texture: s.AddFace(userConfig.Items.Face),
-			Matrix:  aeno.Identity(),
+		// If the mesh fails to load, log a warning and skip this part.
+		if mesh == nil {
+			log.Printf("Warning: Failed to load body part mesh for '%s' from '%s'. Skipping.", name, meshPath)
+			continue
 		}
 
-		headMatrix := aeno.Translate(aeno.V(0, 0, 0)) // guesstimate: (0, 1.5, 0)
-		headNode = NewSceneNode("Head", headObj, headMatrix)
-		torsoNode.AddChild(headNode)
+		// Create the renderable object for the body part.
+		bodyPartObject := &aeno.Object{
+			Mesh:   mesh.Copy(),
+			Color:  aeno.HexColor(userConfig.Colors[name]),
+			Matrix: aeno.Identity(),
+		}
+		
+		if name == "Torso" || name == "LeftArm" || name == "RightArm" && userConfig.Items.Shirt.Item != "none"  {
+			shirtHash := getTextureHash(userConfig.Items.Shirt)
+			textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, shirtHash)
+			bodyPartObject.Texture = s.cache.GetTexture(textureURL)
+		}
 
-	} else {
-		log.Printf("Warning: Failed to load head mesh from '%s'.", headMeshPath)
-		headMatrix := aeno.Translate(aeno.V(0, 0, 0)) // guesstimate
-		headNode = NewSceneNode("Head", nil, headMatrix)
-		torsoNode.AddChild(headNode)
+		if name == "LeftLeg" || name == "RightLeg" && userConfig.Items.Pants.Item != "none"  {
+			pantHash := getTextureHash(userConfig.Items.Pants)
+			textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, pantHash)
+			bodyPartObject.Texture = s.cache.GetTexture(textureURL)
+		}
+		
+		if name == "Head" {
+			bodyPartObject.Texture = s.AddFace(userConfig.Items.Face)
+		}
+		
+		// Add the completed object to our list for rendering.
+		allObjects = append(allObjects, bodyPartObject)
 	}
 
-	// 4. Load Hats (Children of Head)
+	// Here, we decide whether to render the normal left arm or the tool-holding arm.
+	if isToolEquipped {
+		armAndToolObjects := s.ToolClause(
+			userConfig.Items.Tool,
+			userConfig.BodyParts.ToolArm,
+			userConfig.Colors["LeftArm"],
+			userConfig.Items.Shirt,
+			config,
+		)
+		allObjects = append(allObjects, armAndToolObjects...)
+	}
+
+	if userConfig.Items.Tshirt.Item != "none" {
+        teeMeshPath := fmt.Sprintf("%s/assets/tee.obj", cdnURL)
+        teeMesh := s.cache.GetMesh(teeMeshPath)
+
+        if teeMesh == nil {
+            log.Printf("Warning: Failed to load t-shirt mesh from '%s'. Skipping.", teeMeshPath)
+        } else {
+            tshirtHash := getTextureHash(userConfig.Items.Tshirt)
+            tshirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, tshirtHash)
+            tshirtTexture := s.cache.GetTexture(tshirtTextureURL)
+            
+            TshirtLoader := &aeno.Object{
+                Mesh:    teeMesh.Copy(),
+                Color:   aeno.Transparent,
+                Texture: tshirtTexture,
+                Matrix:  aeno.Identity(),
+            }
+            allObjects = append(allObjects, TshirtLoader)
+        }
+    }
+	
+	if obj := s.RenderItem(userConfig.Items.Addon); obj != nil {
+		allObjects = append(allObjects, obj)
+	}
+
 	for hatKey, hatItemData := range userConfig.Items.Hats {
 		if !hatKeyPattern.MatchString(hatKey) {
 			log.Printf("Warning: Invalid hat key format: '%s'. Skipping hat.\n", hatKey)
 			continue
 		}
 		if hatItemData.Item != "none" {
-			if hatObj := s.RenderItem(hatItemData); hatObj != nil {
-				hatNode := NewSceneNode(hatKey, hatObj, aeno.Identity())
-				headNode.AddChild(hatNode)
+			if obj := s.RenderItem(hatItemData); obj != nil {
+				allObjects = append(allObjects, obj)
 			}
 		}
 	}
-
-	// 5. Load Legs (Children of Torso)
-	// These are offsets for the hip joints.
-	legOffsets := map[string]aeno.Vector{
-		"LeftLeg":  aeno.V(0, 0, 0), // guesstimate
-		"RightLeg": aeno.V(0, 0, 0), // guesstimate
-	}
-	for _, name := range []string{"LeftLeg", "RightLeg"} {
-		meshPath := s.getMeshPath(parts[name], bodyPartDefaults[name])
-		mesh := s.cache.GetMesh(meshPath)
-		if mesh == nil {
-			log.Printf("Warning: Failed to load leg mesh for '%s' from '%s'.", name, meshPath)
-			continue
-		}
-
-		legObj := &aeno.Object{
-			Mesh:   mesh.Copy(),
-			Color:  aeno.HexColor(userConfig.Colors[name]),
-			Matrix: aeno.Identity(),
-		}
-		if userConfig.Items.Pants.Item != "none" {
-			pantHash := getTextureHash(userConfig.Items.Pants)
-			textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, pantHash)
-			legObj.Texture = s.cache.GetTexture(textureURL)
-		}
-
-		legMatrix := aeno.Translate(legOffsets[name])
-		legNode := NewSceneNode(name, legObj, legMatrix)
-		torsoNode.AddChild(legNode)
-	}
-
-
-	rightArmJointMatrix := aeno.Translate(aeno.V(0, 0, 0)) // change as its a gusstimate....
-	rightArmNode := NewSceneNode("RightArm", nil, rightArmJointMatrix) // This is the node you would rotate
-	torsoNode.AddChild(rightArmNode)
-
-	rightArmMeshPath := s.getMeshPath(parts["RightArm"], bodyPartDefaults["RightArm"])
-	rightArmMesh := s.cache.GetMesh(rightArmMeshPath)
-	if rightArmMesh != nil {
-		rightArmObj := &aeno.Object{
-			Mesh:   rightArmMesh.Copy(),
-			Color:  aeno.HexColor(userConfig.Colors["RightArm"]),
-			Matrix: aeno.Identity(),
-		}
-		if userConfig.Items.Shirt.Item != "none" {
-			shirtHash := getTextureHash(userConfig.Items.Shirt)
-			textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, shirtHash)
-			rightArmObj.Texture = s.cache.GetTexture(textureURL)
-		}
-		// The arm mesh is parented to the joint, with no extra offset
-		rightArmMeshNode := NewSceneNode("RightArmMesh", rightArmObj, aeno.Identity())
-		rightArmNode.AddChild(rightArmMeshNode)
-	} else {
-		log.Printf("Warning: Failed to load RightArm mesh from '%s'.", rightArmMeshPath)
-	}
-
-	// --- Left Arm (Complex case with Tool) ---
-	leftArmJointMatrix := aeno.Translate(aeno.V(0, 0, 0)) // guesstimate
-	leftArmNode := NewSceneNode("LeftArm", nil, leftArmJointMatrix) // This is the node you will rotate!
-	torsoNode.AddChild(leftArmNode)
-
-	meshPath := s.getMeshPath(parts["LeftArm"], bodyPartDefaults["LeftArm"])
-	mesh := s.cache.GetMesh(meshPath)
-	if mesh != nil {
-		leftArmObj := &aeno.Object{
-			Mesh:   mesh.Copy(),
-			Color:  aeno.HexColor(userConfig.Colors["LeftArm"]),
-			Matrix: aeno.Identity(),
-		}
-		if userConfig.Items.Shirt.Item != "none" {
-			shirtHash := getTextureHash(userConfig.Items.Shirt)
-			textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, shirtHash)
-			leftArmObj.Texture = s.cache.GetTexture(textureURL)
-		}
-
-		if isToolEquipped {
-			// Load the tool (Child of the Left Arm)
-			if toolObj := s.RenderItem(userConfig.Items.Tool); toolObj != nil {
-				toolMatrix := aeno.Translate(aeno.V(0, 0, 0)) // COMPLETE guesstimate
-				toolNode := NewSceneNode("Tool", leftArmObj, toolMatrix)
-				leftArmNode.AddChild(toolNode) // Parent tool to the arm
-			}
-		} else {
-			log.Printf("Warning: Failed to load tool arm mesh from '%s'.", meshPath)
-		}
-		// Arm mesh is parented to the joint
-		leftArmMeshNode := NewSceneNode("LeftArmMesh", leftArmObj, aeno.Identity())
-		leftArmNode.AddChild(leftArmMeshNode)
-	} else {
-		log.Printf("Warning: Failed to load LeftArm mesh from '%s'.", meshPath)
-	}
-
-	// 7. Load T-Shirt (Child of Torso)
-	if userConfig.Items.Tshirt.Item != "none" {
-		teeMeshPath := fmt.Sprintf("%s/assets/tee.obj", cdnURL)
-		teeMesh := s.cache.GetMesh(teeMeshPath)
-		if teeMesh != nil {
-			tshirtHash := getTextureHash(userConfig.Items.Tshirt)
-			tshirtTextureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, tshirtHash)
-			tshirtTexture := s.cache.GetTexture(tshirtTextureURL)
-
-			TshirtLoader := &aeno.Object{
-				Mesh:    teeMesh.Copy(),
-				Color:   aeno.Transparent,
-				Texture: tshirtTexture,
-				Matrix:  aeno.Identity(),
-			}
-			// T-Shirt is an overlay on the Torso, so no offset
-			tshirtNode := NewSceneNode("Tshirt", TshirtLoader, aeno.Identity())
-			torsoNode.AddChild(tshirtNode)
-		} else {
-			log.Printf("Warning: Failed to load t-shirt mesh from '%s'.", teeMeshPath)
-		}
-	}
-
-	// 8. Load Addon (Child of Torso)
-	if obj := s.RenderItem(userConfig.Items.Addon); obj != nil {
-		addonNode := NewSceneNode("Addon", obj, aeno.Identity())
-		torsoNode.AddChild(addonNode)
-	}
-
-	return rootNode, isToolEquipped
+	
+	return allObjects
 }
 
-func (s *Server) generatePreview(config ItemConfig, renderConfig RenderConfig) (*SceneNode, bool) {
+func (s *Server) generatePreview(config ItemConfig, renderConfig RenderConfig) []*aeno.Object {
 	fmt.Printf("generatePreview: Starting for ItemType: %s, Item: %+v\n", config.ItemType, config.Item)
 
 	previewConfig := useDefault
@@ -861,7 +704,7 @@ func (s *Server) generatePreview(config ItemConfig, renderConfig RenderConfig) (
 	default:
 		fmt.Printf("generatePreview: Unhandled item type '%s'. Showing default avatar.\n", config.ItemType)
 	}
-	return s.buildCharacterTree(previewConfig, renderConfig)
+	return s.generateObjects(previewConfig, renderConfig)
 }
 
 func (s *Server) AddFace(faceData ItemData) aeno.Texture {
