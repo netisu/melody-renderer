@@ -411,8 +411,7 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 
 	go func() {
 		defer wg.Done()
-		rootNode, _ := s.buildCharacterTree(e.RenderJson, RenderConfig{IncludeTool: true})		
-
+		rootNode, _, detachedToolNode := s.buildCharacterTree(e.RenderJson, RenderConfig{IncludeTool: true})
 		var allObjects []*aeno.Object // This is the flat list the renderer needs
 		rootNode.Flatten(aeno.Identity(), &allObjects)
 
@@ -564,7 +563,7 @@ func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
 	}
 }
 
-func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) (*SceneNode, bool) {
+func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) (*SceneNode, bool, *SceneNode) {
 	cdnURL := s.config.CDNURL
 	isToolEquipped := config.IncludeTool && userConfig.Items.Tool.Item != "none"
 
@@ -743,7 +742,8 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 		// Load the tool (Child of the Left Arm)
 		if toolObj := s.RenderItem(userConfig.Items.Tool); toolObj != nil {
 			toolNode := NewSceneNode("Tool", toolObj, aeno.Identity())
-			torsoNode.AddChild(toolNode) // Parent tool to the arm
+			toolCorrectionMatrix := aeno.Translate(aeno.V(0, 0, 0)) // TUNE THIS
+        	detachedToolNode = NewSceneNode("Tool", toolObj, toolCorrectionMatrix)
 		}
 	} else {
 		log.Printf("Warning: Failed to load tool arm mesh from '%s'.", meshPath)
@@ -778,7 +778,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 		torsoNode.AddChild(addonNode)
 	}
 
-	return rootNode, isToolEquipped
+	return rootNode, isToolEquipped, detachedToolNode
 }
 
 func (s *Server) generatePreview(config ItemConfig, renderConfig RenderConfig) (*SceneNode, bool) {
