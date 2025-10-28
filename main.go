@@ -150,8 +150,10 @@ var useDefault UserConfig = UserConfig{
 // hatKeyPattern is a regular expression to match keys like "hat_1", "hat_123", etc.
 var hatKeyPattern = regexp.MustCompile(`^hat_\d+$`)
 var shoulderJointOffset = aeno.V(0, 0, 0) 
-var leftarmEquippedPose = aeno.Translate(aeno.V(0, 0.6, 0)).Mul(aeno.Rotate(aeno.V(1, 0, 0), math.Pi/2))
-
+var leftarmEquippedPose = aeno.Translate(aeno.V(0.0, -5.2, 5.21)).
+    Mul(aeno.Rotate(aeno.V(1, 0, 0), -90 * math.Pi/180)).
+    Mul(aeno.Rotate(aeno.V(0, 1, 0), 0.0)).                
+    Mul(aeno.Rotate(aeno.V(0, 0, 1), 0.0))
 // Holds all environment variables, loaded once at startup.
 type Config struct {
 	PostKey       string
@@ -709,13 +711,11 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 
 	// --- Left Arm (Complex case with Tool) ---
 	var leftArmJointMatrix aeno.Matrix
-	// if isToolEquipped {
-	// 	leftArmJointMatrix = leftarmEquippedPose
-	// } else {
-	// 	leftArmJointMatrix = aeno.Translate(shoulderJointOffset) // guesstimate
-
-	// }
-	leftArmJointMatrix = aeno.Identity()
+	if isToolEquipped {
+		leftArmJointMatrix = leftarmEquippedPose
+	} else {
+		leftArmJointMatrix = aeno.Translate(shoulderJointOffset) // guesstimate
+	}
 	leftArmNode := NewSceneNode("LeftArm", nil, leftArmJointMatrix) // This is the node you will rotate!
 	torsoNode.AddChild(leftArmNode)
 
