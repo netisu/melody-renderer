@@ -150,7 +150,8 @@ var useDefault UserConfig = UserConfig{
 // hatKeyPattern is a regular expression to match keys like "hat_1", "hat_123", etc.
 var hatKeyPattern = regexp.MustCompile(`^hat_\d+$`)
 var shoulderJointOffset = aeno.V(0, 0, 0) 
-var leftarmEquippedPose = aeno.Rotate(aeno.V(90, 0, 0), math.Pi/2)
+var leftarmEquippedPose = aeno.Translate(aeno.V(0, 0.6, 0)).Mul(aeno.Rotate(aeno.V(1, 0, 0), math.Pi/2))
+
 // Holds all environment variables, loaded once at startup.
 type Config struct {
 	PostKey       string
@@ -711,7 +712,8 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 	if isToolEquipped {
 		leftArmJointMatrix = leftarmEquippedPose
 	} else {
-		leftArmJointMatrix = aeno.Identity()
+		leftArmJointMatrix = aeno.Translate(shoulderJointOffset) // guesstimate
+
 	}
 	leftArmNode := NewSceneNode("LeftArm", nil, leftArmJointMatrix) // This is the node you will rotate!
 	torsoNode.AddChild(leftArmNode)
@@ -722,7 +724,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 		leftArmObj := &aeno.Object{
 			Mesh:   mesh.Copy(),
 			Color:  aeno.HexColor(userConfig.Colors["LeftArm"]),
-			Matrix: leftArmJointMatrix,
+			Matrix: aeno.Identity(),
 		}
 		if userConfig.Items.Shirt.Item != "none" {
 			shirtHash := getTextureHash(userConfig.Items.Shirt)
@@ -741,7 +743,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 		// Load the tool (Child of the Left Arm)
 		if toolObj := s.RenderItem(userConfig.Items.Tool); toolObj != nil {
 			toolNode := NewSceneNode("Tool", toolObj, aeno.Identity())
-			leftArmNode.AddChild(toolNode) // Parent tool to the arm
+			torsoNode.AddChild(toolNode) // Parent tool to the arm
 		}
 	} else {
 		log.Printf("Warning: Failed to load tool arm mesh from '%s'.", meshPath)
