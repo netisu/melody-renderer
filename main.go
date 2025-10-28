@@ -151,7 +151,7 @@ var useDefault UserConfig = UserConfig{
 var hatKeyPattern = regexp.MustCompile(`^hat_\d+$`)
 var shoulderJointOffset = aeno.V(0, 0, 0) 
 var leftarmEquippedPose = aeno.Translate(aeno.V(0, -5.290632, 5.225405)).
-    Mul(aeno.Rotate(aeno.V(-90, 0, 0), math.Pi/2)).
+    Mul(aeno.Rotate(aeno.V(-90, 0, 0), math.Pi/2))
 // Holds all environment variables, loaded once at startup.
 type Config struct {
 	PostKey       string
