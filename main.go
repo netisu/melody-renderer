@@ -149,8 +149,6 @@ var useDefault UserConfig = UserConfig{
 
 // hatKeyPattern is a regular expression to match keys like "hat_1", "hat_123", etc.
 var hatKeyPattern = regexp.MustCompile(`^hat_\d+$`)
-var shoulderJointOffset = aeno.V(0, 0, 0) 
-var leftarmEquippedPose = aeno.Translate(aeno.V(0, 0.6, 0)).Mul(aeno.Rotate(aeno.V(1, 0, 0), math.Pi/2))
 
 // Holds all environment variables, loaded once at startup.
 type Config struct {
@@ -411,7 +409,17 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 
 	go func() {
 		defer wg.Done()
-		rootNode, _, detachedToolNode := s.buildCharacterTree(e.RenderJson, RenderConfig{IncludeTool: true})
+		rootNode, isToolEquipped := s.buildCharacterTree(e.RenderJson, RenderConfig{IncludeTool: true})		
+		
+		if isToolEquipped {
+			// Find the node named "LeftArm" (which is our shoulder joint)
+			if leftShoulder := rootNode.FindNodeByName("LeftArm"); leftShoulder != nil {
+				// TODO: when i get on my windows pc, find the correct axis and angle
+				rotation := aeno.Rotate(aeno.V(0, 0, 0), math.Pi/2) // 90 degrees on X-axis
+				leftShoulder.LocalMatrix = leftShoulder.LocalMatrix.Mul(rotation)
+			}
+		}
+
 		var allObjects []*aeno.Object // This is the flat list the renderer needs
 		rootNode.Flatten(aeno.Identity(), &allObjects)
 
@@ -435,7 +443,7 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 			headshot_center = aeno.V(-0.5, 6.8, 0)
 			headshot_up     = aeno.V(0, 4, 0)
 		)
-		rootNode, _, detachedToolNode := s.buildCharacterTree(e.RenderJson, RenderConfig{IncludeTool: true})		
+		rootNode, _ := s.buildCharacterTree(e.RenderJson, RenderConfig{IncludeTool: false})
 		var allObjects []*aeno.Object
 		rootNode.Flatten(aeno.Identity(), &allObjects)
 		
@@ -463,7 +471,13 @@ func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent, isPreview 
 	var allObjects []*aeno.Object
 	var outputKey string
 	if isPreview {
-		rootNode, _ := s.generatePreview(i.RenderJson, RenderConfig{IncludeTool: true})
+		rootNode, isToolEquipped := s.generatePreview(i.RenderJson, RenderConfig{IncludeTool: true})
+		if isToolEquipped {
+    		if leftShoulder := rootNode.FindNodeByName("LeftArm"); leftShoulder != nil {
+        		rotation := aeno.Rotate(aeno.V(1, 0, 0), math.Pi/2)
+        		leftShoulder.LocalMatrix = leftShoulder.LocalMatrix.Mul(rotation)
+    		}
+		}
 		rootNode.Flatten(aeno.Identity(), &allObjects)
 		if i.RenderJson.PathMod {
 			outputKey = path.Join("thumbnails", i.Hash+"_preview.png")
@@ -563,7 +577,49 @@ func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
 	}
 }
 
-func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) (*SceneNode, bool, *SceneNode) {
+func (s *Server) ToolClause(toolData ItemData, toolArmMeshName string, leftArmColor string, shirtData ItemData, config RenderConfig) []*aeno.Object {
+	objects := []*aeno.Object{}
+	cdnURL := s.config.CDNURL
+	var shirtTexture aeno.Texture
+	if shirtData.Item != "none" {
+		shirtHash := getTextureHash(shirtData)
+		textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, shirtHash)
+		shirtTexture = s.cache.GetTexture(textureURL)
+	}
+	
+	if config.IncludeTool {
+		var toolArmPath string
+		// If a custom tool arm is specified (and it's not the default placeholder name), use it.
+		if toolArmMeshName != "" && toolArmMeshName != "arm_tool" {
+			toolArmPath = fmt.Sprintf("%s/uploads/%s.obj", cdnURL, toolArmMeshName)
+		} else {
+			// Otherwise, use the default asset.
+			toolArmPath = fmt.Sprintf("%s/assets/arm_tool.obj", cdnURL)
+		}
+		armMesh := s.cache.GetMesh(toolArmPath)
+
+		if toolObj := s.RenderItem(toolData); toolObj != nil {
+			objects = append(objects, toolObj)
+		}
+
+		if armMesh == nil {
+			log.Printf("Warning: Failed to load tool arm mesh from '%s'. Skipping arm.", toolArmPath)
+			return objects
+		}
+
+		armObject := &aeno.Object{
+			Mesh:    armMesh.Copy(),
+			Color:   aeno.HexColor(leftArmColor),
+			Texture: shirtTexture,
+			Matrix:  aeno.Identity(),
+		}
+		objects = append(objects, armObject)
+	}
+	
+	return objects
+}
+
+func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) (*SceneNode, bool) {
 	cdnURL := s.config.CDNURL
 	isToolEquipped := config.IncludeTool && userConfig.Items.Tool.Item != "none"
 
@@ -707,13 +763,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 	}
 
 	// --- Left Arm (Complex case with Tool) ---
-	var leftArmJointMatrix aeno.Matrix
-	if isToolEquipped {
-		leftArmJointMatrix = leftarmEquippedPose
-	} else {
-		leftArmJointMatrix = aeno.Translate(shoulderJointOffset) // guesstimate
-
-	}
+	leftArmJointMatrix := aeno.Translate(aeno.V(0, 0, 0)) // guesstimate
 	leftArmNode := NewSceneNode("LeftArm", nil, leftArmJointMatrix) // This is the node you will rotate!
 	torsoNode.AddChild(leftArmNode)
 
@@ -731,22 +781,21 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 			leftArmObj.Texture = s.cache.GetTexture(textureURL)
 		}
 
+		if isToolEquipped {
+			// Load the tool (Child of the Left Arm)
+			if toolObj := s.RenderItem(userConfig.Items.Tool); toolObj != nil {
+				toolMatrix := aeno.Translate(aeno.V(0, 0, 0)) // COMPLETE guesstimate
+				toolNode := NewSceneNode("Tool", leftArmObj, toolMatrix)
+				leftArmNode.AddChild(toolNode) // Parent tool to the arm
+			}
+		} else {
+			log.Printf("Warning: Failed to load tool arm mesh from '%s'.", meshPath)
+		}
 		// Arm mesh is parented to the joint
 		leftArmMeshNode := NewSceneNode("LeftArmMesh", leftArmObj, aeno.Identity())
 		leftArmNode.AddChild(leftArmMeshNode)
 	} else {
 		log.Printf("Warning: Failed to load LeftArm mesh from '%s'.", meshPath)
-	}
-	var detachedToolNode *SceneNode
-	if isToolEquipped {
-		// Load the tool (Child of the Left Arm)
-		if toolObj := s.RenderItem(userConfig.Items.Tool); toolObj != nil {
-			toolNode := NewSceneNode("Tool", toolObj, aeno.Identity())
-			toolCorrectionMatrix := aeno.Translate(aeno.V(0, 0, 0)) // TUNE THIS
-        	detachedToolNode = NewSceneNode("Tool", toolObj, toolCorrectionMatrix)
-		}
-	} else {
-		log.Printf("Warning: Failed to load tool arm mesh from '%s'.", meshPath)
 	}
 
 	// 7. Load T-Shirt (Child of Torso)
@@ -778,7 +827,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 		torsoNode.AddChild(addonNode)
 	}
 
-	return rootNode, isToolEquipped, detachedToolNode
+	return rootNode, isToolEquipped
 }
 
 func (s *Server) generatePreview(config ItemConfig, renderConfig RenderConfig) (*SceneNode, bool) {
