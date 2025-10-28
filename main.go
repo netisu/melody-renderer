@@ -435,7 +435,8 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 			headshot_center = aeno.V(-0.5, 6.8, 0)
 			headshot_up     = aeno.V(0, 4, 0)
 		)
-		rootNode, _, detachedToolNode := s.buildCharacterTree(e.RenderJson, RenderConfig{IncludeTool: true})		var allObjects []*aeno.Object
+		rootNode, _, detachedToolNode := s.buildCharacterTree(e.RenderJson, RenderConfig{IncludeTool: true})		
+		var allObjects []*aeno.Object
 		rootNode.Flatten(aeno.Identity(), &allObjects)
 		
 		outputKey := path.Join("thumbnails", e.Hash+"_headshot.png")
