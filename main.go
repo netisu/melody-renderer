@@ -742,8 +742,10 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 	if isToolEquipped {
 		// Load the tool (Child of the Left Arm)
 		if toolObj := s.RenderItem(userConfig.Items.Tool); toolObj != nil {
-			const tinyOffset = 0.0001
-			toolLocalMatrix := aeno.Translate(aeno.V(tinyOffset, tinyOffset, tinyOffset))
+			counterRotation := aeno.Rotate(aeno.V(1, 0, 0), -math.Pi/2)
+        	const tinyOffset = 0.0001
+        	stabilityTranslation := aeno.Translate(aeno.V(tinyOffset, tinyOffset, tinyOffset))
+			toolLocalMatrix := counterRotation.Mul(stabilityTranslation)
 			toolNode := NewSceneNode("Tool", toolObj, toolLocalMatrix)
 			leftArmNode.AddChild(toolNode) // Parent tool to the arm
 		}
