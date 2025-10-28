@@ -711,7 +711,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 	if isToolEquipped {
 		leftArmJointMatrix = leftarmEquippedPose
 	} else {
-		leftArmJointMatrix = aeno.Translate(shoulderJointOffset) // guesstimate
+		leftArmJointMatrix = aeno.Identity()
 	}
 	leftArmNode := NewSceneNode("LeftArm", nil, leftArmJointMatrix) // This is the node you will rotate!
 	torsoNode.AddChild(leftArmNode)
@@ -722,7 +722,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 		leftArmObj := &aeno.Object{
 			Mesh:   mesh.Copy(),
 			Color:  aeno.HexColor(userConfig.Colors["LeftArm"]),
-			Matrix: leftarmEquippedPose,
+			Matrix: leftArmJointMatrix,
 		}
 		if userConfig.Items.Shirt.Item != "none" {
 			shirtHash := getTextureHash(userConfig.Items.Shirt)
