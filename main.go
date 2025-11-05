@@ -575,12 +575,7 @@ func (s *Server) ToolClause(toolData ItemData, toolArmMeshName string, leftArmCo
 	if config.IncludeTool {
 		var toolArmPath string
 		// If a custom tool arm is specified (and it's not the default placeholder name), use it.
-		if toolArmMeshName != "" && toolArmMeshName != "arm_tool" {
-			toolArmPath = fmt.Sprintf("%s/uploads/%s.obj", cdnURL, toolArmMeshName)
-		} else {
-			// Otherwise, use the default asset.
-			toolArmPath = fmt.Sprintf("%s/assets/arm_tool.obj", cdnURL)
-		}
+		toolArmPath = fmt.Sprintf("%s/assets/arm_tool.obj", cdnURL)
 		armMesh := s.cache.GetMesh(toolArmPath)
 
 		if toolObj := s.RenderItem(toolData); toolObj != nil {
