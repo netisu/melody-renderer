@@ -381,20 +381,13 @@ func (s *Server) handleRender(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.handleUserRender(w, e)
-	case "item":
-		var i ItemEvent
-		if err := json.Unmarshal(body, &i); err != nil {
-			http.Error(w, "Invalid request body for type 'item'", http.StatusBadRequest)
-			return
-		}
-		s.handleItemRender(w, i, false) // isPreview = false
-	case "item_preview", "style":
+	case "item", "style":
 		var i ItemEvent
 		if err := json.Unmarshal(body, &i); err != nil {
             http.Error(w, "Invalid request body for type 'item_preview' or 'style'", http.StatusBadRequest)
 			return
 		}
-		s.handleItemRender(w, i, true) // isPreview = true
+		s.handleItemRender(w, i)
 	default:
 		http.Error(w, "Invalid RenderType specified", http.StatusBadRequest)
 	}
@@ -456,11 +449,10 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 	fmt.Fprintln(w, "User render and headshot processed successfully.")
 }
 
-func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent, isPreview bool) {
+func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent) {
 	start := time.Now()
 	var allObjects []*aeno.Object
 	var outputKey string
-	if isPreview {
 		rootNode, _ := s.generatePreview(i.RenderJson, RenderConfig{IncludeTool: true})
 		
 		rootNode.Flatten(aeno.Identity(), &allObjects)
@@ -469,13 +461,6 @@ func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent, isPreview 
 		} else {
 			outputKey = path.Join("thumbnails", i.Hash+".png")
 		}
-	} else {
-		if renderedObject := s.RenderItem(i.RenderJson.Item); renderedObject != nil {
-			allObjects = []*aeno.Object{renderedObject}
-		}
-		outputKey = path.Join("thumbnails", i.Hash+".png")
-	}
-
 	if len(allObjects) == 0 {
 		http.Error(w, "No objects to render for this item", http.StatusBadRequest)
 		return
