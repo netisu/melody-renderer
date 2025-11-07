@@ -23,7 +23,7 @@ import (
 
 // --- Constants and Global Variables ---
 const (
-	scale      = 1
+	scale      = 3
 	fovy       = 50
 	near       = 0.1
 	far        = 1000
