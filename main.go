@@ -847,9 +847,13 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 
 			// Load the tool (Child of the Tool Arm)
 			if toolObj := s.RenderItem(userConfig.Items.Tool); toolObj != nil {
-				toolMatrix := aeno.Translate(aeno.V(0, 0, 0)) // COMPLETE guesstimate
-				toolNode := NewSceneNode("Tool", toolObj, toolMatrix)
-				toolArmNode.AddChild(toolNode) // Parent tool to the arm
+				// Don't render our placeholder item, but do render any real tool
+				if userConfig.Items.Tool.Item != "none" {
+					toolMatrix := aeno.Translate(aeno.V(0, 0, 0)) // COMPLETE guesstimate
+					toolNode := NewSceneNode("Tool", toolObj, toolMatrix)
+					toolArmNode.AddChild(toolNode) // Parent tool to the arm
+				}
+			}Node.AddChild(toolNode) // Parent tool to the arm
 			}
 		} else {
 			log.Printf("Warning: Failed to load tool arm mesh from '%s'.", toolArmPath)
@@ -936,6 +940,31 @@ func (s *Server) generatePreview(config ItemConfig, renderConfig RenderConfig) (
 	case "head":
 		if itemData.Item != "none" {
 			previewConfig.BodyParts.Head = config.Item.Item
+		}
+	case "torso":
+		if itemData.Item != "none" {
+			previewConfig.BodyParts.Torso = config.Item.Item
+		}
+	case "left_arm":
+		if itemData.Item != "none" {
+			previewConfig.BodyParts.LeftArm = config.Item.Item
+		}
+	case "right_arm":
+		if itemData.Item != "none" {
+			previewConfig.BodyParts.RightArm = config.Item.Item
+		}
+	case "left_leg":
+		if itemData.Item != "none" {
+			previewConfig.BodyParts.LeftLeg = config.Item.Item
+		}
+	case "right_leg":
+		if itemData.Item != "none" {
+			previewConfig.BodyParts.RightLeg = config.Item.Item
+		}
+	case "tool_arm":
+		if itemData.Item != "none" {
+			previewConfig.BodyParts.ToolArm = config.Item.Item
+			previewConfig.Items.Tool = ItemData{Item: "none"}
 		}
 	default:
 		fmt.Printf("generatePreview: Unhandled item type '%s'. Showing default avatar.\n", config.ItemType)
