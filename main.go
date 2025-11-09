@@ -70,12 +70,14 @@ type ItemEvent struct {
 	Hash       string     `json:"Hash"`
 	RenderJson ItemConfig `json:"RenderJson"` // Use interface{} for flexibility
 }
+
 type SceneNode struct {
 	Name        string
 	Object      *aeno.Object // The renderable object (can be nil for empty joints)
 	LocalMatrix aeno.Matrix  // Transformation relative to the parent
 	Children    []*SceneNode
 }
+
 type HatsCollection map[string]ItemData
 
 type UserConfig struct {
@@ -194,6 +196,7 @@ func NewSceneNode(name string, obj *aeno.Object, matrix aeno.Matrix) *SceneNode 
 		Children:    make([]*SceneNode, 0),
 	}
 }
+
 func (n *SceneNode) AddChild(child *SceneNode) {
 	n.Children = append(n.Children, child)
 }
