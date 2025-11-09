@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -30,6 +31,7 @@ const (
 	amb        = "b0b0b0"
 	lightcolor = "808080"
 	Dimentions = 512
+	renderTimeout = 20 * time.Second
 )
 
 var (
@@ -173,12 +175,14 @@ type AssetCache struct {
 	mu       sync.RWMutex
 	meshes   map[string]*aeno.Mesh
 	textures map[string]aeno.Texture
+	httpClient *http.Client
 }
 
-func NewAssetCache() *AssetCache {
+func NewAssetCache(client *http.Client) *AssetCache {
 	return &AssetCache{
 		meshes:   make(map[string]*aeno.Mesh),
 		textures: make(map[string]aeno.Texture),
+		httpClient: client,
 	}
 }
 
@@ -237,12 +241,19 @@ func (c *AssetCache) GetMesh(url string) *aeno.Mesh {
 		return mesh
 	}
 
-	resp, err := http.Head(url)
-    if err != nil || resp.StatusCode != http.StatusOK {
-        log.Printf("Warning: Mesh not found or inaccessible at %s (Status: %d)", url, resp.StatusCode)
+	resp, err := c.httpClient.Head(url)
+    if err != nil {
+        log.Printf("Warning: Failed to check mesh URL %s: %v", url, err)
         c.meshes[url] = nil // Cache the failure to avoid repeated checks
         return nil
     }
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("Warning: Mesh not found or inaccessible at %s (Status: %d)", url, resp.StatusCode)
+		c.meshes[url] = nil // Cache the failure
+		return nil
+	}
 
 	mesh = aeno.LoadObjectFromURL(url)
 	c.meshes[url] = mesh
@@ -265,8 +276,14 @@ func (c *AssetCache) GetTexture(url string) aeno.Texture {
 	}
 
 	// Only load if the texture actually exists
-	resp, err := http.Head(url)
-	if err == nil && resp.StatusCode == http.StatusOK {
+	resp, err := c.httpClient.Head(url)
+	if err != nil {
+		log.Printf("Warning: Failed to check texture URL %s: %v", url, err)
+		return nil
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
 		texture = aeno.LoadTextureFromURL(url)
 		c.textures[url] = texture
 		return texture
@@ -287,6 +304,7 @@ type Server struct {
 	config     *Config
 	s3Uploader *s3.S3
 	cache      *AssetCache
+	httpClient *http.Client
 }
 
 // Helper to get environment variables with a default value.
@@ -326,11 +344,16 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create S3 session: %v", err)
 	}
-
+	
+	httpClient := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+	
 	server := &Server{
 		config:     cfg,
 		s3Uploader: s3.New(newSession),
-		cache:      NewAssetCache(),
+		cache:      NewAssetCache(httpClient),
+		httpClient: httpClient,
 	}
 
 	http.HandleFunc("/", server.handleRender)
@@ -393,6 +416,55 @@ func (s *Server) handleRender(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *Server) runRenderWithTimeout(
+	objects []*aeno.Object,
+	eye, center, up aeno.Vector,
+	fovy float64,
+	dimentions, scale int,
+	light aeno.Vector,
+	amb, lightcolor string,
+	near, far float64,
+	fit bool,
+) ([]byte, error) {
+
+	ctx, cancel := context.WithTimeout(context.Background(), renderTimeout)
+	defer cancel()
+
+	// This channel will receive the render result or a panic error
+	type result struct {
+		buffer []byte
+		err    error
+	}
+	resultChan := make(chan result, 1)
+
+	go func() {
+		// Use defer/recover in case aeno panics
+		defer func() {
+			if r := recover(); r != nil {
+				resultChan <- result{nil, fmt.Errorf("render panic: %v", r)}
+			}
+		}()
+
+		var buffer bytes.Buffer
+		aeno.GenerateSceneToWriter(
+			&buffer,
+			objects,
+			eye, center, up, fovy,
+			dimentions, scale, light, amb, lightcolor, near, far, fit,
+		)
+		resultChan <- result{buffer: buffer.Bytes(), err: nil}
+	}()
+
+	select {
+	case <-ctx.Done():
+		// Timeout exceeded
+		return nil, fmt.Errorf("render exceeded timeout of %v", renderTimeout)
+	case res := <-resultChan:
+		// Render completed (or paniced)
+		return res.buffer, res.err
+	}
+}
+
 // not so new now lol
 func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 	start := time.Now()
@@ -407,13 +479,16 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 		rootNode.Flatten(aeno.Identity(), &allObjects)
 
 		outputKey := path.Join("thumbnails", e.Hash+".png")
-		var buffer bytes.Buffer
-		aeno.GenerateSceneToWriter(
-			&buffer,
+		
+		bufferBytes, err := s.runRenderWithTimeout(
 			allObjects,
 			eye, center, up, fovy,
 			Dimentions, scale, light, amb, lightcolor, near, far, true, // This true actually decides if all objects are fit into a bounding box or not.
 		)
+		if err != nil {
+			log.Printf("ERROR: Full user render for %s failed: %v", e.Hash, err)
+			return // Don't upload
+		}
 
 		s.uploadToS3(buffer.Bytes(), outputKey)
 	}()
@@ -432,13 +507,15 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 		
 		outputKey := path.Join("thumbnails", e.Hash+"_headshot.png")
 
-		var buffer bytes.Buffer
-		aeno.GenerateSceneToWriter(
-			&buffer,
+		bufferBytes, err := s.runRenderWithTimeout(
 			allObjects,
 			headshot_eye, headshot_center, headshot_up, headshot_fovy,
 			Dimentions, scale, light, amb, lightcolor, near, far, false,
 		)
+		if err != nil {
+			log.Printf("ERROR: Headshot render for %s failed: %v", e.Hash, err)
+			return // Don't upload
+		}
 
 		s.uploadToS3(buffer.Bytes(), outputKey)
 	}()
@@ -466,13 +543,18 @@ func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent) {
 		return
 	}
 
-	var buffer bytes.Buffer
-	aeno.GenerateSceneToWriter(
+	bufferBytes, err := s.runRenderWithTimeout(
 		&buffer,
 		allObjects,
 		eye, center, up, fovy,
 		Dimentions, scale, light, amb, lightcolor, near, far, true,
 	)
+	if err != nil {
+		log.Printf("ERROR: Item render for %s failed: %v", i.Hash, err)
+		// Return an error to the client instead of hanging
+		http.Error(w, fmt.Sprintf("Render failed: %v", err), http.StatusGatewayTimeout)
+		return
+	}
 
 	s.uploadToS3(buffer.Bytes(), outputKey)
 	
