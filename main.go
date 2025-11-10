@@ -853,7 +853,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 					toolNode := NewSceneNode("Tool", toolObj, toolMatrix)
 					toolArmNode.AddChild(toolNode) // Parent tool to the arm
 				}
-			}Node.AddChild(toolNode) // Parent tool to the arm
+			}
 			}
 		} else {
 			log.Printf("Warning: Failed to load tool arm mesh from '%s'.", toolArmPath)
