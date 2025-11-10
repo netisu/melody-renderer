@@ -110,7 +110,7 @@ var useDefault UserConfig = UserConfig{
 		RightArm: "arm_right",
 		LeftLeg:  "leg_left",
 		RightLeg: "leg_right",
-		ToolArm:  "tool_arm",
+		ToolArm:  "arm_tool",
 	},
 	Items: struct {
 		Face   ItemData       `json:"face"`
