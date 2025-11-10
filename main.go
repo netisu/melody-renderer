@@ -846,20 +846,16 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 			leftArmNode.AddChild(toolArmNode) // Parent arm to shoulder
 
 			// Load the tool (Child of the Tool Arm)
-			if toolObj := s.RenderItem(userConfig.Items.Tool); toolObj != nil {
-				// Don't render our placeholder item, but do render any real tool
-				if userConfig.Items.Tool.Item != "none" {
-					toolMatrix := aeno.Translate(aeno.V(0, 0, 0)) // COMPLETE guesstimate
-					toolNode := NewSceneNode("Tool", toolObj, toolMatrix)
-					toolArmNode.AddChild(toolNode) // Parent tool to the arm
+				if toolObj := s.RenderItem(userConfig.Items.Tool); toolObj != nil {
+					// Don't render our placeholder item, but do render any real tool
+					if userConfig.Items.Tool.Item != "none" {
+						toolMatrix := aeno.Translate(aeno.V(0, 0, 0)) // COMPLETE guesstimate
+						toolNode := NewSceneNode("Tool", toolObj, toolMatrix)
+						toolArmNode.AddChild(toolNode) // Parent tool to the arm
+					}
 				}
 			}
-			}
 		} else {
-			log.Printf("Warning: Failed to load tool arm mesh from '%s'.", toolArmPath)
-		}
-
-	} else {
 		meshPath := s.getMeshPath(parts["LeftArm"], bodyPartDefaults["LeftArm"])
 		mesh := s.cache.GetMesh(meshPath)
 		if mesh != nil {
