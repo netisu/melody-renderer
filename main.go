@@ -493,7 +493,7 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 			return // Don't upload
 		}
 
-		s.uploadToS3(buffer.Bytes(), outputKey)
+		s.uploadToS3(bufferBytes, outputKey)
 	}()
 
 	go func() {
@@ -520,7 +520,7 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 			return // Don't upload
 		}
 
-		s.uploadToS3(buffer.Bytes(), outputKey)
+		s.uploadToS3(bufferBytes, outputKey)
 	}()
 
 	wg.Wait()
@@ -547,7 +547,6 @@ func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent) {
 	}
 
 	bufferBytes, err := s.runRenderWithTimeout(
-		&buffer,
 		allObjects,
 		eye, center, up, fovy,
 		Dimentions, scale, light, amb, lightcolor, near, far, true,
@@ -559,7 +558,7 @@ func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent) {
 		return
 	}
 
-	s.uploadToS3(buffer.Bytes(), outputKey)
+	s.uploadToS3(bufferBytes, outputKey)
 	
 	log.Printf("Completed item render for %s in %v", i.Hash, time.Since(start))
 	w.WriteHeader(http.StatusOK)
