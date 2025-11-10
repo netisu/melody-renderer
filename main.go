@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/png"
 	"io"
 	"log"
 	"net/http"
@@ -20,6 +22,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/joho/godotenv"
 	"github.com/netisu/aeno"
+	"github.com/nfnt/resize"
 )
 
 // --- Constants and Global Variables ---
@@ -567,9 +570,31 @@ func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent) {
 
 
 func (s *Server) uploadToS3(buffer []byte, key string) {
+	img, _, err := image.Decode(bytes.NewReader(buffer))
+	if err != nil {
+		log.Printf("Failed to decode image %s for resizing: %v. Uploading original.", key, err)
+	} else {
+		currentWidth := img.Bounds().Dx()
+		targetWidth := uint(Dimentions)
+
+		if currentWidth != int(targetWidth) {
+			log.Printf("Resizing image %s from %dpx to %dpx", key, currentWidth, targetWidth)
+			
+			resizedImg := resize.Resize(targetWidth, targetWidth, img, resize.Lanczos3)
+
+			var resizedBuffer bytes.Buffer
+			
+			if err := png.Encode(&resizedBuffer, resizedImg); err != nil {
+				log.Printf("Failed to re-encode resized image %s: %v. Uploading original.", key, err)
+			} else {
+				buffer = resizedBuffer.Bytes()
+			}
+		}
+	}
+	
 	size := int64(len(buffer))
 
-	_, err := s.s3Uploader.PutObject(&s3.PutObjectInput{
+	_, err = s.s3Uploader.PutObject(&s3.PutObjectInput{
 		Bucket:        aws.String(s.config.S3Bucket),
 		Key:           aws.String(key),
 		Body:          bytes.NewReader(buffer),
