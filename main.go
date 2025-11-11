@@ -516,7 +516,7 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 		bufferBytes, err := s.runRenderWithTimeout(
 			allObjects,
 			headshot_eye, headshot_center, headshot_up, headshot_fovy,
-			Dimentions, scale, light, amb, lightcolor, near, far, false,
+			Dimentions, scale, light, amb, lightcolor, near, far, true,
 		)
 		if err != nil {
 			log.Printf("ERROR: Headshot render for %s failed: %v", e.Hash, err)
