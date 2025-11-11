@@ -502,7 +502,7 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 	go func() {
 		defer wg.Done()
 		var (
-			headshot_fovy 	= 23.5
+			headshot_fovy 	= 25.5
 			headshot_eye    = aeno.V(4, 7, 13)
 			headshot_center = aeno.V(-0.5, 6.8, 0)
 			headshot_up     = aeno.V(0, 4, 0)
