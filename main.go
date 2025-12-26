@@ -374,47 +374,47 @@ type RenderRequestType struct {
 // --- CHANGED: Central HTTP Handler ---
 func (s *Server) handleRender(w http.ResponseWriter, r *http.Request) {
 	if s.config.PostKey != "" && r.Header.Get("Aeo-Access-Key") != s.config.PostKey {
-		http.Error(w, "Unauthorized request", http.StatusUnauthorized)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		http.Error(w, "Error reading request body", http.StatusBadRequest)
+		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
 	defer r.Body.Close()
 
-	// OPTIMIZATION: Unmarshal just the type first to decide what to do.
+	// Peek at the RenderType
 	var reqType RenderRequestType
 	if err := json.Unmarshal(body, &reqType); err != nil {
-		http.Error(w, "Invalid request body: could not determine RenderType", http.StatusBadRequest)
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
 
-	log.Printf("Received render request of type: %s", reqType.RenderType)
+	log.Printf("Received RenderType: %s", reqType.RenderType)
 
 	switch reqType.RenderType {
 	case "user":
 		var e RenderEvent
 		if err := json.Unmarshal(body, &e); err != nil {
-			http.Error(w, "Invalid request body for type 'user'", http.StatusBadRequest)
+			http.Error(w, "Invalid user render body", http.StatusBadRequest)
 			return
 		}
 		s.handleUserRender(w, e)
 	case "item", "style":
 		var i ItemEvent
 		if err := json.Unmarshal(body, &i); err != nil {
-            http.Error(w, "Invalid request body for type 'item_preview' or 'style'", http.StatusBadRequest)
+			http.Error(w, "Invalid item render body", http.StatusBadRequest)
 			return
 		}
 		s.handleItemRender(w, i)
 	default:
-		http.Error(w, "Invalid RenderType specified", http.StatusBadRequest)
+		http.Error(w, "Unknown RenderType", http.StatusBadRequest)
 	}
 }
 
