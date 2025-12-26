@@ -506,7 +506,7 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 	fmt.Fprintln(w, "User render and headshot processed successfully.")
 }
 
-func (s *Server) handleItemRender(w http.ResponseWriter, i ItemEvent) {
+func (s *Server) handleItemRender(w http.ResponseWriter, r *http.Request, i ItemEvent) {
 	start := time.Now()
 	rootNode, _ := s.generatePreview(i.RenderJson, RenderConfig{IncludeTool: true})
 
