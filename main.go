@@ -320,9 +320,7 @@ func getEnv(key, fallback string) string {
 // Initializes everything once.
 func main() {
 	rootDir := getEnv("RENDERER_ROOT_DIR", "/var/www/renderer")
-	if err := godotenv.Load(path.Join(rootDir, ".env")); err != nil {
-		log.Println("Warning: .env file not found or could not be loaded.")
-	}
+	_ = godotenv.Load(path.Join(rootDir, ".env"))
 
 	cfg := &Config{
 		PostKey:       os.Getenv("POST_KEY"),
@@ -342,18 +340,16 @@ func main() {
 		Region:           aws.String(cfg.S3Region),
 		S3ForcePathStyle: aws.Bool(true),
 	}
-	newSession, err := session.NewSession(s3Config)
+	sess, err := session.NewSession(s3Config)
 	if err != nil {
 		log.Fatalf("Failed to create S3 session: %v", err)
 	}
-	
-	httpClient := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-	
+
+	httpClient := &http.Client{Timeout: 10 * time.Second}
+
 	server := &Server{
 		config:     cfg,
-		s3Uploader: s3.New(newSession),
+		s3Uploader: s3.New(sess),
 		cache:      NewAssetCache(httpClient),
 		httpClient: httpClient,
 	}
