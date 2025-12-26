@@ -481,7 +481,7 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 	go func() {
 		defer wg.Done()
 		var (
-			hsFovy   = 30.5
+			hsFovy   = 32.5
 			hsEye    = aeno.V(4, 7, 13)
 			hsCenter = aeno.V(-0.5, 6.8, 0)
 			hsUp     = aeno.V(0, 1, 0)
