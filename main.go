@@ -24,13 +24,13 @@ import (
 
 // --- Constants and Global Variables ---
 const (
-	scale      = 1
-	fovy       = 50
-	near       = 0.1
-	far        = 1000
-	amb        = "b0b0b0"
-	lightcolor = "808080"
-	Dimensions = 512
+	Scale         = 1
+	FovY          = 50
+	Near          = 0.1
+	Far           = 1000
+	AmbColor      = "b0b0b0"
+	LightColor    = "808080"
+	Dimensions    = 512
 	RenderTimeout = 20 * time.Second
 	UploadTimeout = 10 * time.Second
 )
