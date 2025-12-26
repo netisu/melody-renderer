@@ -408,7 +408,7 @@ func (s *Server) handleRender(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Invalid item render body", http.StatusBadRequest)
 			return
 		}
-		s.handleItemRender(w, i, r)
+		s.handleItemRender(w, r, i)
 	default:
 		http.Error(w, "Unknown RenderType", http.StatusBadRequest)
 	}
