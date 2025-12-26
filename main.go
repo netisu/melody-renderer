@@ -747,10 +747,6 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 		rightArmNode.AddChild(NewSceneNode("RightArmMesh", rArmObj, aeno.Identity()))
 	}
 	
-	} else {
-		log.Printf("Warning: Failed to load RightArm mesh from '%s'.", rightArmMeshPath)
-	}
-
 	// Left Arm & Tool
 	leftArmNode := NewSceneNode("LeftArm", nil, aeno.Identity()) // Joint
 	torsoNode.AddChild(leftArmNode)
