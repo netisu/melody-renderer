@@ -25,7 +25,7 @@ import (
 // --- Constants and Global Variables ---
 const (
 	Scale         = 1
-	FovY          = 40
+	FovY          = 50
 	Near          = 0.1
 	Far           = 1000.0
 	AmbColor      = "#b0b0b0"
