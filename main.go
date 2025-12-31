@@ -467,7 +467,7 @@ func (s *Server) runRenderWithTimeout(
 			scene.FitCamera(fovy, aspect)
 			view := aeno.LookAt(scene.Eye, scene.Center, scene.Up)
 			proj := aeno.Perspective(fovy, aspect, near, far)
-			shader.Matrix = newView.Mul(proj)
+			shader.Matrix = view.Mul(proj)
 			shader.CameraPosition = scene.Eye
 		}
 		scene.Render()
