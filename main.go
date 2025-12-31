@@ -495,7 +495,7 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 		var objects []*aeno.Object
 		rootNode.Flatten(aeno.Identity(), &objects)
 
-		buf, err := s.runRenderWithTimeout(objects, eye, center, up, FovY, Dimensions, Scale, light, AmbColor, LightColor, Near, Far, true)
+		buf, err := s.runRenderWithTimeout(objects, eye, center, up, FovY, Dimensions, Scale, light, AmbColor, LightColor, Near, Far, false)
 		if err != nil {
 			log.Printf("User render failed: %v", err)
 			return
