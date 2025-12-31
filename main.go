@@ -450,6 +450,14 @@ func (s *Server) runRenderWithTimeout(
 		shader := aeno.NewPhongShader(matrix, light, eye, amb, diff)
 
 		scene := aeno.NewScene(width, height, shader)
+		scene.Context.ClearColorBufferWith(aeno.Transparent)
+		scene.Context.ClearDepthBuffer()
+
+		// 4. Object Validation
+		if len(objects) == 0 {
+			resChan <- result{nil, fmt.Errorf("no objects to render")}
+			return
+		}
 		scene.Objects = objects
 		scene.Eye = eye
 		scene.Center = center
