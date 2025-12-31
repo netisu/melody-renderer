@@ -464,7 +464,7 @@ func (s *Server) runRenderWithTimeout(
 		scene.Up = up
 
 		if fit {
-			scene.FitObjectsToScene(FovY, aspect Near, Far)
+			scene.FitObjectsToScene(FovY, aspect, Near, Far)
 		}
 		scene.Render()
 		var buf bytes.Buffer
