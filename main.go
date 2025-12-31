@@ -37,8 +37,8 @@ const (
 
 var (
 	eye    = aeno.V(4.05, 10.49, 8.01)
-	center = aeno.V(0, 4, 0)
-	up     = aeno.V(0, 4, 0)
+	center = aeno.V(0, 1, 0)
+	up     = aeno.V(0, 1, 0)
 	light  = aeno.V(-1, 3, 1).Normalize()
 )
 
