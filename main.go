@@ -464,11 +464,7 @@ func (s *Server) runRenderWithTimeout(
 		scene.Up = up
 
 		if fit {
-			scene.FitCamera(fovy, aspect)
-			view := aeno.LookAt(scene.Eye, scene.Center, scene.Up)
-			proj := aeno.Perspective(fovy, aspect, near, far)
-			shader.Matrix = view.Mul(proj)
-			shader.CameraPosition = scene.Eye
+			scene.FitObjectsToScene(FovY, aspect Near, Far)
 		}
 		scene.Render()
 		var buf bytes.Buffer
