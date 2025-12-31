@@ -437,38 +437,25 @@ func (s *Server) runRenderWithTimeout(
 			}
 		}()
 		
-		aspect := float64(dim) / float64(dim)
-		width := dim * scale
-		height := dim * scale
-
-		view := aeno.LookAt(eye, center, up)
-		proj := aeno.Perspective(fovy, aspect, near, far)
-		matrix := view.Mul(proj)
-
-		amb := aeno.HexColor(ambStr)
-		diff := aeno.HexColor(lightColorStr)
-		shader := aeno.NewPhongShader(matrix, light, eye, amb, diff)
-
-		scene := aeno.NewScene(width, height, shader)
-		scene.Context.ClearColorBufferWith(aeno.Transparent)
-		scene.Context.ClearDepthBuffer()
-
-		// 4. Object Validation
-		if len(objects) == 0 {
-			resChan <- result{nil, fmt.Errorf("no objects to render")}
-			return
-		}
-		scene.Objects = objects
-		scene.Eye = eye
-		scene.Center = center
-		scene.Up = up
-
-		if fit {
-			scene.FitObjectsToScene(FovY, aspect, Near, Far)
-		}
-		scene.Render()
 		var buf bytes.Buffer
-		err := png.Encode(&buf, scene.Context.Image())
+
+		err := aeno.GenerateSceneToWriter(
+			&buf,
+			objects,
+			eye,
+			center,
+			up,
+			fovy,
+			dim,
+			scale,
+			light,
+			ambStr,
+			lightColorStr,
+			near,
+			far,
+			fit,
+		)
+
 		resChan <- result{data: buf.Bytes(), err: err}
 	}()
 
