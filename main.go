@@ -37,7 +37,7 @@ const (
 
 var (
 	eye    = aeno.V(0.75, 0.85, 15)
-	center = aeno.V(0, 0.06, 0)
+	center = aeno.V(0, 1, 0)
 	up     = aeno.V(0, 1, 0)
 	light  = aeno.V(-1, 3, 1).Normalize()
 )
@@ -491,7 +491,7 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 	go func() {
 		defer wg.Done()
 		var (
-			hsFovy   = 32.5
+			hsFovy   = 2500.5
 			hsEye    = aeno.V(4, 7, 13)
 			hsCenter = aeno.V(-0.5, 6.8, 0)
 			hsUp     = aeno.V(0, 1, 0)
