@@ -25,7 +25,7 @@ import (
 // --- Constants and Global Variables ---
 const (
 	Scale         = 1
-	FovY          = 30
+	FovY          = 40
 	Near          = 0.1
 	Far           = 1000.0
 	AmbColor      = "#b0b0b0"
@@ -36,7 +36,7 @@ const (
 )
 
 var (
-	eye    = aeno.V(6, 12, 15)
+	eye    = aeno.V(5, 10, 13)
 	center = aeno.V(0, 0.06, 0)
 	up     = aeno.V(0, 1, 0)
 	light  = aeno.V(-1, 3, 1).Normalize()
