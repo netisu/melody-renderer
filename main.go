@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"image/png"
 	"io"
 	"log"
 	"net/http"
@@ -27,9 +28,9 @@ const (
 	Scale         = 1
 	FovY          = 50
 	Near          = 0.1
-	Far           = 1000
-	AmbColor      = "b0b0b0"
-	LightColor    = "808080"
+	Far           = 1000.0
+	AmbColor      = "#b0b0b0"
+	LightColor    = "#808080"
 	Dimensions    = 512
 	RenderTimeout = 20 * time.Second
 	UploadTimeout = 10 * time.Second
@@ -106,7 +107,6 @@ type AssetCache struct {
 	textures map[string]aeno.Texture
 	httpClient *http.Client
 }
-
 
 type HatsCollection map[string]ItemData
 
@@ -248,18 +248,24 @@ func (c *AssetCache) GetMesh(url string) *aeno.Mesh {
 	}
 
 	// Verify existence via HEAD first to save bandwidth if missing
-	resp, err := c.httpClient.Head(url)
+	resp, err := c.httpClient.Get(url)
 	if err != nil || resp.StatusCode != http.StatusOK {
+		log.Printf("Warning: Mesh inaccessible at %s", url)
+		c.meshes[url] = nil
 		if resp != nil {
 			resp.Body.Close()
 		}
-		log.Printf("Warning: Mesh inaccessible at %s", url)
-		c.meshes[url] = nil // Cache negative result
 		return nil
 	}
-	resp.Body.Close()
+	defer resp.Body.Close()
 
-	mesh = aeno.LoadObjectFromURL(url)
+	mesh, err = aeno.LoadOBJFromReader(resp.Body)
+	if err != nil {
+		log.Printf("Warning: Failed to parse OBJ from %s: %v", url, err)
+		c.meshes[url] = nil
+		return nil
+	}
+
 	c.meshes[url] = mesh
 	return mesh
 }
@@ -278,16 +284,6 @@ func (c *AssetCache) GetTexture(url string) aeno.Texture {
 	if texture, ok = c.textures[url]; ok {
 		return texture
 	}
-
-	// Only load if the texture actually exists
-	resp, err := c.httpClient.Head(url)
-	if err != nil || resp.StatusCode != http.StatusOK {
-		if resp != nil {
-			resp.Body.Close()
-		}
-		return nil
-	}
-	resp.Body.Close()
 
 	texture = aeno.LoadTextureFromURL(url)
 	c.textures[url] = texture
@@ -420,7 +416,7 @@ func (s *Server) runRenderWithTimeout(
 	fovy float64,
 	dim, scale int,
 	light aeno.Vector,
-	amb, lightcolor string,
+	ambStr, lightColorStr string,
 	near, far float64,
 	fit bool,
 ) ([]byte, error) {
@@ -440,12 +436,35 @@ func (s *Server) runRenderWithTimeout(
 				resChan <- result{nil, fmt.Errorf("panic in renderer: %v", r)}
 			}
 		}()
+		
+		aspect := float64(dim) / float64(dim)
+		width := dim * scale
+		height := dim * scale
 
+		view := aeno.LookAt(eye, center, up)
+		proj := aeno.Perspective(fovy, aspect, near, far)
+		matrix := view.Mul(proj)
+
+		amb := aeno.HexColor(ambStr)
+		diff := aeno.HexColor(lightColorStr)
+		shader := aeno.NewPhongShader(matrix, light, eye, amb, diff)
+
+		scene := aeno.NewScene(width, height, shader)
+		scene.Objects = objects
+		scene.Eye = eye
+		scene.Center = center
+		scene.Up = up
+
+		if fit {
+			scene.FitCamera(fovy, aspect)
+			newView := aeno.LookAt(scene.Eye, scene.Center, scene.Up)
+			shader.Matrix = newView.Mul(proj)
+			shader.CameraPosition = scene.Eye
+		}
+		scene.Render()
 		var buf bytes.Buffer
-		aeno.GenerateSceneToWriter(
-			&buf, objects, eye, center, up, fovy, dim, scale, light, amb, lightcolor, near, far, fit,
-		)
-		resChan <- result{data: buf.Bytes(), err: nil}
+		err := png.Encode(&buf, scene.Context.Image())
+		resChan <- result{data: buf.Bytes(), err: err}
 	}()
 
 	select {
