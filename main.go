@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"image/png"
 	"io"
 	"log"
 	"net/http"
