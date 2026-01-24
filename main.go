@@ -260,20 +260,7 @@ func (c *AssetCache) GetMesh(url string) *aeno.Mesh {
 	defer resp.Body.Close()
 
 	if strings.HasSuffix(strings.ToLower(url), ".glb") {
-		tmpFile, err := os.CreateTemp("", "mesh-*.glb")
-		if err != nil {
-			log.Printf("Error creating temp file: %v", err)
-			return nil
-		}
-		defer os.Remove(tmpFile.Name())
-		
-		if _, err := io.Copy(tmpFile, resp.Body); err != nil {
-			tmpFile.Close()
-			return nil
-		}
-		tmpFile.Close()
-
-		mesh, err = aeno.LoadGLTF(tmpFile.Name())
+		mesh, err = aeno.LoadGLTFFromReader(resp.Body)
 	} else {
 		mesh, err = aeno.LoadOBJFromReader(resp.Body)
 	}
