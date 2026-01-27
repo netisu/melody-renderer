@@ -720,7 +720,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 	shoulderPos := aeno.V(-2.4342, 5.2510, 0.0132)
 	jointMatrix := aeno.Translate(shoulderPos)
 	if isToolEquipped && userConfig.Items.Tool.Item != "none" {
-		rot := aeno.Rotate(aeno.V(1, 0, 0), aeno.Radians(-90))
+		rot := aeno.Rotate(aeno.V(1, 0, 0), aeno.Radians(90))
 		jointMatrix = jointMatrix.Mul(rot)
 	}
 	leftArmNode := NewSceneNode("LeftArm", nil, jointMatrix) // Joint
