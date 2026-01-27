@@ -722,7 +722,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 
 	if isToolEquipped {
 		// Rotate 90 degrees around X axis
-		armRotation := aeno.Rotate(aeno.V(1, 0, 0), aeno.Radians(-90))
+		armRotation := aeno.Rotate(aeno.V(1, 0, 0), aeno.Radians(90))
 		leftArmNode.LocalMatrix = leftArmNode.LocalMatrix.Mul(armRotation)
 	}
 	
