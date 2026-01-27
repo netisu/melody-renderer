@@ -717,19 +717,19 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 	}
 	
 	// Left Arm & Tool
-	armRotation := aeno.Identity()
+	armMatrix := aeno.Identity()
 	shoulderPos := aeno.V(-2.4342, 5.2510, 0.0132)
 
-	armMatrix := aeno.Identity()
 
 	if isToolEquipped {
-    	// rotX := aeno.Rotate(aeno.V(1, 0, 0), aeno.Radians(-90))
-    	// rotY := aeno.Rotate(aeno.V(0, 1, 0), aeno.Radians(-90))
+    	rotX := aeno.Rotate(aeno.V(1, 0, 0), aeno.Radians(-90))
+    	rotY := aeno.Rotate(aeno.V(0, 1, 0), aeno.Radians(-90))
     	armMatrix = armMatrix.Mul(rotX).Mul(rotY)
     	// armMatrix = armMatrix.Mul(rotY).Mul(rotX)
 	}
 	
-	leftArmNode := NewSceneNode("LeftArm", nil, armRotation) // Joint
+	armMatrix = armMatrix.Mul(aeno.Translate(shoulderPos))
+	leftArmNode := NewSceneNode("LeftArm", nil, armMatrix) // Joint
 	torsoNode.AddChild(leftArmNode)
 	
 	var lArmMesh *aeno.Mesh
