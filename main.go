@@ -730,8 +730,9 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 			url := fmt.Sprintf("%s/uploads/%s.png", cdnURL, getTextureHash(userConfig.Items.Shirt))
 			lArmObj.Texture = s.cache.GetTexture(url)
 		}
+		armNodeMatrix := aeno.Identity()
 		if isToolEquipped && userConfig.Items.Tool.Item != "none" {
-    		armMatrix := aeno.Rotate(aeno.V(1, 0, 0), aeno.Radians(90))
+    		armNodeMatrix := aeno.Rotate(aeno.V(1, 0, 0), aeno.Radians(90))
 		}
 		lArmMeshNode := NewSceneNode("LeftArmMesh", lArmObj, armMatrix)
 		leftArmNode.AddChild(lArmMeshNode)
