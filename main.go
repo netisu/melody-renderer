@@ -725,7 +725,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
     	armMatrix = armMatrix.Mul(rotX).Mul(rotY)
         // armMatrix = armMatrix.Mul(rotY).Mul(rotX)
 	}
-	
+	armMatrix = armMatrix.Mul(aeno.Translate(shoulderPos))
 	leftArmNode := NewSceneNode("LeftArm", nil, armMatrix) // Joint
 	torsoNode.AddChild(leftArmNode)
 	
