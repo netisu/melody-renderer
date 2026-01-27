@@ -718,11 +718,8 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 	
 	// Left Arm & Tool
 	armMatrix := aeno.Identity()
-	
 	if isToolEquipped {
-    	rotX := aeno.Rotate(aeno.V(1, 0, 0), aeno.Radians(-90))
-    	rotY := aeno.Rotate(aeno.V(0, 1, 0), aeno.Radians(-90))
-    	armMatrix = armMatrix.Mul(rotY).Mul(rotX)
+        armMatrix = aeno.Rotate(aeno.V(1, 0, 0), aeno.Radians(-90))
 	}
 	
 	leftArmNode := NewSceneNode("LeftArm", nil, armMatrix) // Joint
