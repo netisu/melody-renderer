@@ -742,7 +742,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 		// Attach Tool if equipped
 		if isToolEquipped && userConfig.Items.Tool.Item != "none" {
         	if toolObj := s.RenderItem(userConfig.Items.Tool); toolObj != nil {
-            	leftArmNode.AddChild(NewSceneNode("Tool", toolObj, aeno.Identity()))
+            	torsoNode.AddChild(NewSceneNode("Tool", toolObj, aeno.Identity()))
         	}
     	}
 	}
