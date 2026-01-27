@@ -717,14 +717,12 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 	}
 	
 	// Left Arm & Tool
-	leftArmNode := NewSceneNode("LeftArm", nil, aeno.Identity()) // Joint
-	torsoNode.AddChild(leftArmNode)
-
+	armRotation := aeno.Identity()
 	if isToolEquipped {
-		// Rotate 90 degrees around X axis
-		armRotation := aeno.Rotate(aeno.V(1, 0, 0), aeno.Radians(-90))
-		leftArmNode.LocalMatrix = leftArmNode.LocalMatrix.Mul(armRotation)
+    	armRotation = aeno.Rotate(aeno.V(1, 0, 0), aeno.Radians(-90))
 	}
+	leftArmNode := NewSceneNode("LeftArm", nil, armRotation) // Joint
+	torsoNode.AddChild(leftArmNode)
 	
 	var lArmMesh *aeno.Mesh
 		lArmMesh = s.cache.GetMesh(s.getMeshPath(parts["LeftArm"], defaults["LeftArm"]))
@@ -740,10 +738,10 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 
 		// Attach Tool if equipped
 		if isToolEquipped && userConfig.Items.Tool.Item != "none" {
-			if toolObj := s.RenderItem(userConfig.Items.Tool); toolObj != nil {
-				lArmMeshNode.AddChild(NewSceneNode("Tool", toolObj, aeno.Identity()))
-			}
-		}
+        	if toolObj := s.RenderItem(userConfig.Items.Tool); toolObj != nil {
+            	leftArmNode.AddChild(NewSceneNode("Tool", toolObj, aeno.Identity()))
+        	}
+    	}
 	}
 
 	// T-Shirt & Addon
