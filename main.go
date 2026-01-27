@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"sync"
 	"time"
+	"math"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -719,7 +720,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 	// Left Arm & Tool
 	armRotation := aeno.Identity()
 	if isToolEquipped {
-    	armRotation = aeno.Rotate(aeno.V(1, 0, 0), aeno.Radians(-90))
+    	armRotation = aeno.Rotate(aeno.V(1, 0, 0), math.Pi/2)
 	}
 	leftArmNode := NewSceneNode("LeftArm", nil, armRotation) // Joint
 	torsoNode.AddChild(leftArmNode)
