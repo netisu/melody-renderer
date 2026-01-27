@@ -718,9 +718,17 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 	
 	// Left Arm & Tool
 	armRotation := aeno.Identity()
+	shoulderPos := aeno.V(-2.4342, 5.2510, 0.0132)
+
+	armMatrix := aeno.Identity()
+
 	if isToolEquipped {
-    	armRotation = aeno.Rotate(aeno.V(1, 0, 0), aeno.Radians(-90))
+    	// rotX := aeno.Rotate(aeno.V(1, 0, 0), aeno.Radians(-90))
+    	// rotY := aeno.Rotate(aeno.V(0, 1, 0), aeno.Radians(-90))
+    	armMatrix = armMatrix.Mul(rotX).Mul(rotY)
+    	// armMatrix = armMatrix.Mul(rotY).Mul(rotX)
 	}
+	
 	leftArmNode := NewSceneNode("LeftArm", nil, armRotation) // Joint
 	torsoNode.AddChild(leftArmNode)
 	
@@ -746,7 +754,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 
 	// T-Shirt & Addon
 	if userConfig.Items.Tshirt.Item != "none" {
-		if teeMesh := s.cache.GetMesh(fmt.Sprintf("%s/assets/tee.obj", cdnURL)); teeMesh != nil {
+		if teeMesh := s.cache.GetMesh(fmt.Sprintf("%s/assets/tee.glb", cdnURL)); teeMesh != nil {
 			url := fmt.Sprintf("%s/uploads/%s.png", cdnURL, getTextureHash(userConfig.Items.Tshirt))
 			teeObj := &aeno.Object{Mesh: teeMesh.Copy(), Color: aeno.Transparent, Texture: s.cache.GetTexture(url), Matrix: aeno.Identity()}
 			torsoNode.AddChild(NewSceneNode("Tshirt", teeObj, aeno.Identity()))
