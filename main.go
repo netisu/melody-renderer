@@ -732,7 +732,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 		}
 		armNodeMatrix := aeno.Identity()
 		if isToolEquipped && userConfig.Items.Tool.Item != "none" {
-    		armNodeMatrix = aeno.Rotate(aeno.V(1, 0, 0), aeno.Radians(90))
+    		armNodeMatrix = aeno.Rotate(aeno.V(1, 0, 0), aeno.Radians(-90))
 		}
 		lArmMeshNode := NewSceneNode("LeftArmMesh", lArmObj, armNodeMatrix)
 		leftArmNode.AddChild(lArmMeshNode)
