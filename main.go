@@ -717,8 +717,14 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 	}
 	
 	// Left Arm & Tool
-	armMatrix := aeno.Identity()
-	leftArmNode := NewSceneNode("LeftArm", nil, armMatrix) // Joint
+	shoulderPos := aeno.V(-2.4342, 5.2510, 0.0132)
+	jointMatrix := aeno.Identity()
+	if isToolEquipped && userConfig.Items.Tool.Item != "none" {
+		rot := aeno.Rotate(aeno.V(1, 0, 0), aeno.Radians(-90))
+		jointMatrix = jointMatrix.Mul(rot)
+	}
+	jointMatrix = jointMatrix.Mul(aeno.Translate(shoulderPos))
+	leftArmNode := NewSceneNode("LeftArm", nil, jointMatrix) // Joint
 	torsoNode.AddChild(leftArmNode)
 	
 	var lArmMesh *aeno.Mesh
@@ -730,11 +736,8 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 			url := fmt.Sprintf("%s/uploads/%s.png", cdnURL, getTextureHash(userConfig.Items.Shirt))
 			lArmObj.Texture = s.cache.GetTexture(url)
 		}
-		armNodeMatrix := aeno.Identity()
-		if isToolEquipped && userConfig.Items.Tool.Item != "none" {
-    		armNodeMatrix = aeno.Rotate(aeno.V(1, 0, 0), aeno.Radians(-90))
-		}
-		lArmMeshNode := NewSceneNode("LeftArmMesh", lArmObj, armNodeMatrix)
+		meshMatrix := aeno.Translate(shoulderPos.Negate())
+		lArmMeshNode := NewSceneNode("LeftArmMesh", lArmObj, meshMatrix)
 		leftArmNode.AddChild(lArmMeshNode)
 
 		// Attach Tool if equipped
