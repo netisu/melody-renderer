@@ -727,18 +727,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, config RenderConfig) 
 	}
 	
 	var lArmMesh *aeno.Mesh
-	if isToolEquipped {
-		// Load tool arm mesh
-		toolArmName := userConfig.BodyParts.ToolArm
-		path := fmt.Sprintf("%s/assets/arm_tool.obj", cdnURL)
-		if toolArmName != "" && toolArmName != "arm_tool" {
-			path = fmt.Sprintf("%s/uploads/%s.obj", cdnURL, toolArmName)
-		}
-		lArmMesh = s.cache.GetMesh(path)
-	} else {
-		// Load standard left arm
 		lArmMesh = s.cache.GetMesh(s.getMeshPath(parts["LeftArm"], defaults["LeftArm"]))
-	}
 
 	if lArmMesh != nil {
 		lArmObj := &aeno.Object{Mesh: lArmMesh.Copy(), Color: aeno.HexColor(userConfig.Colors["LeftArm"]), Matrix: aeno.Identity()}
