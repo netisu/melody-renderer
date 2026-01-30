@@ -648,7 +648,7 @@ func (s *Server) generateItemObject(config ItemConfig) *SceneNode {
 	}
 
 	// Handle Standard Items (Hats, Tools, Addons)
-	if obj := s.(config.Item); obj != nil {
+	if obj := s.config.Item; obj != nil {
 		rootNode.AddChild(NewSceneNode("ItemObject", obj, aeno.Identity()))
 	}
 
