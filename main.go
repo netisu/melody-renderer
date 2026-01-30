@@ -648,12 +648,13 @@ func (s *Server) generateItemObject(config ItemConfig) *SceneNode {
 	}
 
 	// Handle Standard Items (Hats, Tools, Addons)
-	if obj := config.Item; obj != nil {
+	if obj := s.RenderItem(config.Item); obj != nil {
 		rootNode.AddChild(NewSceneNode("ItemObject", obj, aeno.Identity()))
 	}
 
 	return rootNode
 }
+
 func (s *Server) generateBodyPartObject(config ItemConfig) *SceneNode {
 	rootNode := NewSceneNode("BodyPartRoot", nil, aeno.Identity())
 	
