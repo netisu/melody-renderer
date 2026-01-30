@@ -397,15 +397,27 @@ func (s *Server) handleRender(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.handleUserRender(w, e)
-	case "item", "style":
+	case "item_preview":
 		var i ItemEvent
 		if err := json.Unmarshal(body, &i); err != nil {
 			http.Error(w, "Invalid item render body", http.StatusBadRequest)
 			return
 		}
-		s.handleItemRender(w, r, i)
+		s.handleItemPreviewRender(w, r, i)
+	case "item":
+		var i ItemEvent
+		if err := json.Unmarshal(body, &i); err != nil {
+			http.Error(w, "Invalid item render body", http.StatusBadRequest)
+			return
+		}
+		s.handleItemObjectRender(w, r, i)
 	default:
-		http.Error(w, "Unknown RenderType", http.StatusBadRequest)
+		var i ItemEvent
+		if err := json.Unmarshal(body, &i); err != nil {
+			http.Error(w, "Unknown RenderType", http.StatusBadRequest)
+			return
+		}
+		s.handleItemObjectRender(w, r, i)
 	}
 }
 
@@ -467,6 +479,46 @@ func (s *Server) runRenderWithTimeout(
 }
 
 // not so new now lol
+func (s *Server) handleItemObjectRender(w http.ResponseWriter, r *http.Request, i ItemEvent) {
+	start := time.Now()
+	
+	var rootNode *SceneNode
+
+	switch i.RenderJson.ItemType {
+	case "head", "torso", "left_arm", "right_arm", "left_leg", "right_leg", "tool_arm":
+		rootNode = s.generateBodyPartObject(i.RenderJson)
+	default:
+		rootNode = s.generateItemObject(i.RenderJson)
+	}
+
+	var objects []*aeno.Object
+	rootNode.Flatten(aeno.Identity(), &objects)
+
+	if len(objects) == 0 {
+		http.Error(w, "No objects to render", http.StatusBadRequest)
+		return
+	}
+
+	outputKey := path.Join("thumbnails", i.Hash+".png")
+
+	buf, err := s.runRenderWithTimeout(objects, eye, center, up, FovY, Dimensions, Scale, light, AmbColor, LightColor, Near, Far, true)
+	if err != nil {
+		log.Printf("Object render failed: %v", err)
+		http.Error(w, "Render failed", http.StatusGatewayTimeout)
+		return
+	}
+
+	if err := s.uploadToS3(r.Context(), buf, outputKey); err != nil {
+		log.Printf("Object upload failed: %v", err)
+		http.Error(w, "Upload failed", http.StatusInternalServerError)
+		return
+	}
+
+	log.Printf("Item Object Render %s finished in %v", i.Hash, time.Since(start))
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintln(w, "Object render processed.")
+}
+
 func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 	start := time.Now()
 	var wg sync.WaitGroup
@@ -516,18 +568,12 @@ func (s *Server) handleUserRender(w http.ResponseWriter, e RenderEvent) {
 	fmt.Fprintln(w, "User render and headshot processed successfully.")
 }
 
-func (s *Server) handleItemRender(w http.ResponseWriter, r *http.Request, i ItemEvent) {
+func (s *Server) handleItemPreviewRender(w http.ResponseWriter, r *http.Request, i ItemEvent) {
 	start := time.Now()
 	rootNode, _ := s.generatePreview(i.RenderJson, RenderConfig{IncludeTool: true})
 
 	var objects []*aeno.Object
 	rootNode.Flatten(aeno.Identity(), &objects)
-
-	if len(objects) == 0 {
-		http.Error(w, "No objects to render", http.StatusBadRequest)
-		return
-	}
-
 	outputKey := path.Join("thumbnails", i.Hash+".png")
 	if i.RenderJson.PathMod {
 		outputKey = path.Join("thumbnails", i.Hash+"_preview.png")
@@ -548,7 +594,7 @@ func (s *Server) handleItemRender(w http.ResponseWriter, r *http.Request, i Item
 
 	log.Printf("Item render %s finished in %v", i.Hash, time.Since(start))
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintln(w, "Item processed.")
+	fmt.Fprintln(w, "Preview render processed.")
 }
 
 func (s *Server) uploadToS3(ctx context.Context, data []byte, key string) error {
@@ -585,6 +631,59 @@ func (s *Server) getMeshPath(partName, defaultName string) string {
 	return fmt.Sprintf("%s/uploads/%s.obj", cdnURL, partName)
 }
 
+func (s *Server) generateItemObject(config ItemConfig) *SceneNode {
+	rootNode := NewSceneNode("ItemRoot", nil, aeno.Identity())
+	if config.ItemType == "face" {
+		headMesh := s.cache.GetMesh(s.config.CDNURL + "/assets/cranium.glb")
+		if headMesh != nil {
+			headObj := &aeno.Object{
+				Mesh:    headMesh.Copy(),
+				Color:   aeno.HexColor("d3d3d3"),
+				Texture: s.AddFace(config.Item),
+				Matrix:  aeno.Identity(),
+			}
+			rootNode.AddChild(NewSceneNode("HeadForFace", headObj, aeno.Identity()))
+		}
+		return rootNode
+	}
+
+	// Handle Standard Items (Hats, Tools, Addons)
+	if obj := s.(config.Item); obj != nil {
+		rootNode.AddChild(NewSceneNode("ItemObject", obj, aeno.Identity()))
+	}
+
+	return rootNode
+}
+func (s *Server) generateBodyPartObject(config ItemConfig) *SceneNode {
+	rootNode := NewSceneNode("BodyPartRoot", nil, aeno.Identity())
+	
+	cdnURL := s.config.CDNURL
+	partName := config.Item.Item
+	
+	textureURL := fmt.Sprintf("%s/assets/error-texture.png", cdnURL)
+	
+	if config.ItemType == "head" {
+		textureURL = fmt.Sprintf("%s/assets/default.png", cdnURL)
+	}
+
+	meshURL := s.getMeshPath(partName, "undefined") // Needs fallback handling in getMeshPath
+
+	mesh := s.cache.GetMesh(meshURL)
+	if mesh != nil {
+		obj := &aeno.Object{
+			Mesh:    mesh.Copy(),
+			Color:   aeno.HexColor("d3d3d3"),
+			Texture: s.cache.GetTexture(textureURL),
+			Matrix:  aeno.Identity(),
+		}
+		rootNode.AddChild(NewSceneNode("BodyPart", obj, aeno.Identity()))
+	} else {
+		log.Printf("Failed to load mesh for body part: %s", meshURL)
+	}
+
+	return rootNode
+}
+
 func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
 	if itemData.Item == "none" {
 		return nil
@@ -606,7 +705,7 @@ func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
 	finalMesh := s.cache.GetMesh(meshURL)
 
 	if finalMesh == nil {
-        log.Printf("Error: Could not render item because its mesh failed to load from %s", meshURL)
+        log.Printf("Error: Could not render item %s", meshURL)
         return nil
     }
 	
