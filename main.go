@@ -386,7 +386,7 @@ func (s *Server) handleItemPreviewRender(w http.ResponseWriter, r *http.Request,
 	fmt.Fprintln(w, "Preview processed.")
 }
 
-func (s *Server) handleItemObjectRender(w http.ResponseWriter, r *http.Request, hash string, i ItemConfig) {
+func (s *Server) handleItemObjectRender(w *http.ResponseWriter, r *http.Request, hash string, i ItemConfig) {
 	start := time.Now()
 	
 	var rootNode *SceneNode
