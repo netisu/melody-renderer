@@ -65,18 +65,18 @@ type BodyParts struct {
 // ItemsCollection groups all apparel.
 // 'items' => array_merge(['hats' => ...], $apparelForRender)
 type ItemsCollection struct {
-	Hats    map[string]ItemData `json:"hats"`
-	Face    ItemData            `json:"face"`
-	Addon   ItemData            `json:"addon"`
-	Tool    ItemData            `json:"tool"`
-	Pants   ItemData            `json:"pants"`
-	Shirt   ItemData            `json:"shirt"`
-	Tshirt  ItemData            `json:"tshirt"`
+	Hats   map[string]ItemData `json:"hats"`
+	Face   ItemData            `json:"face"`
+	Addon  ItemData            `json:"addon"`
+	Tool   ItemData            `json:"tool"`
+	Pants  ItemData            `json:"pants"`
+	Shirt  ItemData            `json:"shirt"`
+	Tshirt ItemData            `json:"tshirt"`
 }
 
 type UserConfig struct {
-	BodyParts BodyParts       `json:"body_parts"`
-	Items     ItemsCollection `json:"items"`
+	BodyParts BodyParts         `json:"body_parts"`
+	Items     ItemsCollection   `json:"items"`
 	Colors    map[string]string `json:"colors"`
 }
 
@@ -331,7 +331,7 @@ func (s *Server) handleUserRender(w http.ResponseWriter, hash string, config Use
 
 func (s *Server) handleItemPreviewRender(w http.ResponseWriter, r *http.Request, hash string, i ItemConfig) {
 	start := time.Now()
-	
+
 	previewConfig := NewDefaultUserConfig()
 	switch i.ItemType {
 	case "face":
@@ -349,18 +349,30 @@ func (s *Server) handleItemPreviewRender(w http.ResponseWriter, r *http.Request,
 	case "tshirt":
 		previewConfig.Items.Tshirt = i.Item
 	case "head":
-		if i.Item.Item != "none" { previewConfig.BodyParts.Head = i.Item.Item }
+		if i.Item.Item != "none" {
+			previewConfig.BodyParts.Head = i.Item.Item
+		}
 	case "torso":
-		if i.Item.Item != "none" { previewConfig.BodyParts.Torso = i.Item.Item }
+		if i.Item.Item != "none" {
+			previewConfig.BodyParts.Torso = i.Item.Item
+		}
 	case "left_arm":
-		if i.Item.Item != "none" { previewConfig.BodyParts.LeftArm = i.Item.Item }
+		if i.Item.Item != "none" {
+			previewConfig.BodyParts.LeftArm = i.Item.Item
+		}
 	case "right_arm":
-		if i.Item.Item != "none" { previewConfig.BodyParts.RightArm = i.Item.Item }
+		if i.Item.Item != "none" {
+			previewConfig.BodyParts.RightArm = i.Item.Item
+		}
 	case "left_leg":
-		if i.Item.Item != "none" { previewConfig.BodyParts.LeftLeg = i.Item.Item }
+		if i.Item.Item != "none" {
+			previewConfig.BodyParts.LeftLeg = i.Item.Item
+		}
 	case "right_leg":
-		if i.Item.Item != "none" { previewConfig.BodyParts.RightLeg = i.Item.Item }
-
+		if i.Item.Item != "none" {
+			previewConfig.BodyParts.RightLeg = i.Item.Item
+		}
+	}
 	rootNode, _ := s.buildCharacterTree(previewConfig, true)
 
 	var objects []*aeno.Object
@@ -386,9 +398,9 @@ func (s *Server) handleItemPreviewRender(w http.ResponseWriter, r *http.Request,
 	fmt.Fprintln(w, "Preview processed.")
 }
 
-func (s *Server) handleItemObjectRender(w *http.ResponseWriter, r *http.Request, hash string, i ItemConfig) {
+func (s *Server) handleItemObjectRender(w http.ResponseWriter, r *http.Request, hash string, i ItemConfig) {
 	start := time.Now()
-	
+
 	var rootNode *SceneNode
 	switch i.ItemType {
 	case "head", "torso", "left_arm", "right_arm", "left_leg", "right_leg", "tool_arm":
@@ -465,7 +477,7 @@ func (s *Server) runRenderWithTimeout(
 func (s *Server) buildCharacterTree(userConfig UserConfig, includeTool bool) (*SceneNode, bool) {
 	cdnURL := s.config.CDNURL
 	isToolEquipped := includeTool && userConfig.Items.Tool.Item != "none"
-	
+
 	getMesh := func(hash, defaultName string) *aeno.Mesh {
 		if hash == "" || hash == defaultName {
 			return s.cache.GetMesh(fmt.Sprintf("%s/assets/%s.glb", cdnURL, defaultName))
@@ -551,10 +563,10 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, includeTool bool) (*S
 			url := fmt.Sprintf("%s/uploads/%s.png", cdnURL, getTextureHash(userConfig.Items.Shirt))
 			lObj.Texture = s.cache.GetTexture(url)
 		}
-		
+
 		lArmNode := NewSceneNode("LeftArm", lObj, aeno.Identity())
 		torsoNode.AddChild(lArmNode)
-		
+
 		if isToolEquipped {
 			if toolObj := s.RenderItem(userConfig.Items.Tool); toolObj != nil {
 				lArmNode.AddChild(NewSceneNode("Tool", toolObj, aeno.Identity()))
@@ -583,7 +595,7 @@ func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
 	if itemData.Item == "none" || itemData.Item == "" {
 		return nil
 	}
-	
+
 	cdnURL := s.config.CDNURL
 	meshURL := fmt.Sprintf("%s/uploads/%s.obj", cdnURL, itemData.Item)
 	textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, itemData.Item)
@@ -603,7 +615,7 @@ func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
 		log.Printf("Warning: Could not render item %s", meshURL)
 		return nil
 	}
-	
+
 	return &aeno.Object{
 		Mesh:    finalMesh.Copy(),
 		Color:   aeno.Transparent,
@@ -649,14 +661,14 @@ func (s *Server) generateBodyPartObject(config ItemConfig) *SceneNode {
 	rootNode := NewSceneNode("BodyPartRoot", nil, aeno.Identity())
 	cdnURL := s.config.CDNURL
 	partName := config.Item.Item
-	
+
 	textureURL := fmt.Sprintf("%s/assets/error-texture.png", cdnURL)
 	if config.ItemType == "head" {
 		textureURL = fmt.Sprintf("%s/assets/default.png", cdnURL)
 	}
 
-	meshURL := fmt.Sprintf("%s/uploads/%s.obj", cdnURL, partName) 
-	
+	meshURL := fmt.Sprintf("%s/uploads/%s.obj", cdnURL, partName)
+
 	mesh := s.cache.GetMesh(meshURL)
 	if mesh != nil {
 		obj := &aeno.Object{
@@ -688,7 +700,7 @@ func (s *Server) uploadToS3(ctx context.Context, data []byte, key string) error 
 		log.Printf("S3 Upload Error for key %s: %v", key, err)
 		return fmt.Errorf("failed to upload %s: %w", key, err)
 	}
-	
+
 	log.Printf("Uploaded %s to S3 (%d bytes)", key, size)
 	return nil
 }
@@ -697,17 +709,23 @@ func (c *AssetCache) GetMesh(url string) *aeno.Mesh {
 	c.mu.RLock()
 	mesh, ok := c.meshes[url]
 	c.mu.RUnlock()
-	if ok { return mesh }
+	if ok {
+		return mesh
+	}
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if mesh, ok = c.meshes[url]; ok { return mesh }
+	if mesh, ok = c.meshes[url]; ok {
+		return mesh
+	}
 
 	resp, err := c.httpClient.Get(url)
 	if err != nil || resp.StatusCode != 200 {
 		log.Printf("Warning: Mesh inaccessible at %s (Status: %v)", url, resp.StatusCode)
 		c.meshes[url] = nil
-		if resp != nil { resp.Body.Close() }
+		if resp != nil {
+			resp.Body.Close()
+		}
 		return nil
 	}
 	defer resp.Body.Close()
@@ -725,11 +743,15 @@ func (c *AssetCache) GetTexture(url string) aeno.Texture {
 	c.mu.RLock()
 	tex, ok := c.textures[url]
 	c.mu.RUnlock()
-	if ok { return tex }
+	if ok {
+		return tex
+	}
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if tex, ok = c.textures[url]; ok { return tex }
+	if tex, ok = c.textures[url]; ok {
+		return tex
+	}
 
 	tex = aeno.LoadTextureFromURL(url)
 	c.textures[url] = tex
