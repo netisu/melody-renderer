@@ -186,11 +186,15 @@ func getTextureHash(itemData ItemData) string {
 	return itemData.Item
 }
 
-func main() {
-	rootDir := os.Getenv("RENDERER_ROOT_DIR")
-	if rootDir == "" {
-		rootDir = "."
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
 	}
+	return fallback
+}
+
+func main() {
+	rootDir := getEnv("RENDERER_ROOT_DIR", "/var/www/renderer")
 	_ = godotenv.Load(path.Join(rootDir, ".env"))
 
 	s3Config := &aws.Config{
