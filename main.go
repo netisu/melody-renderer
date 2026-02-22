@@ -570,7 +570,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, includeTool bool) (*S
 	torsoNode.AddChild(leftArmNode)
 	
 	var lArmMesh *aeno.Mesh
-		lArmMesh = s.cache.GetMesh(s.getMeshPath(parts["LeftArm"], defaults["LeftArm"]))
+		lArmMesh = getMesh(userConfig.BodyParts.LeftArm, "arm_left")
 
 	if lArmMesh != nil {
 		lArmObj := &aeno.Object{Mesh: lArmMesh.Copy(), Color: aeno.HexColor(userConfig.Colors["LeftArm"]), Matrix: aeno.Identity()}
