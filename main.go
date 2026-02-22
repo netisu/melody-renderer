@@ -560,27 +560,33 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, includeTool bool) (*S
 		torsoNode.AddChild(NewSceneNode("RightArm", rObj, aeno.Identity()))
 	}
 
-	lArmMesh := getMesh(userConfig.BodyParts.LeftArm, "arm_left")
+	shoulderPos := aeno.V(-2.4342, 5.2510, 0.0132)
+	jointMatrix := aeno.Translate(shoulderPos)
+	if isToolEquipped && userConfig.Items.Tool.Item != "none" {
+		rot := aeno.Rotate(aeno.V(1, 0, 0), aeno.Radians(90))
+		jointMatrix = jointMatrix.Mul(rot)
+	}
+	leftArmNode := NewSceneNode("LeftArm", nil, jointMatrix) // Joint
+	torsoNode.AddChild(leftArmNode)
+	
+	var lArmMesh *aeno.Mesh
+		lArmMesh = s.cache.GetMesh(s.getMeshPath(parts["LeftArm"], defaults["LeftArm"]))
+
 	if lArmMesh != nil {
-		lObj := &aeno.Object{Mesh: lArmMesh.Copy(), Color: aeno.HexColor(userConfig.Colors["LeftArm"]), Matrix: aeno.Identity()}
+		lArmObj := &aeno.Object{Mesh: lArmMesh.Copy(), Color: aeno.HexColor(userConfig.Colors["LeftArm"]), Matrix: aeno.Identity()}
 		if userConfig.Items.Shirt.Item != "none" {
 			url := fmt.Sprintf("%s/uploads/%s.png", cdnURL, getTextureHash(userConfig.Items.Shirt))
-			lObj.Texture = s.cache.GetTexture(url)
+			lArmObj.Texture = s.cache.GetTexture(url)
 		}
-        shoulderPos := aeno.V(-2.4342, 5.2510, 0.0132)
-		jointMatrix := aeno.Translate(shoulderPos)
-		if isToolEquipped && userConfig.Items.Tool.Item != "none" {
-			rot := aeno.Rotate(aeno.V(1, 0, 0), aeno.Radians(90))
-			jointMatrix = jointMatrix.Mul(rot)
-		}
-		lArmNode := NewSceneNode("LeftArm", nil, jointMatrix)
-		torsoNode.AddChild(lArmNode)
+		meshMatrix := aeno.Translate(shoulderPos.Negate())
+		lArmMeshNode := NewSceneNode("LeftArmMesh", lArmObj, meshMatrix)
+		leftArmNode.AddChild(lArmMeshNode)
 
-		if isToolEquipped {
-			if toolObj := s.RenderItem(userConfig.Items.Tool); toolObj != nil {
-				lArmNode.AddChild(NewSceneNode("Tool", toolObj, aeno.Identity()))
-			}
-		}
+		if isToolEquipped && userConfig.Items.Tool.Item != "none" {
+        	if toolObj := s.RenderItem(userConfig.Items.Tool); toolObj != nil {
+            	torsoNode.AddChild(NewSceneNode("Tool", toolObj, aeno.Identity()))
+        	}
+    	}
 	}
 
 	if userConfig.Items.Tshirt.Item != "none" {
