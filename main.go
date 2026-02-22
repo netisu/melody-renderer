@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	Scale         = 2
+	Scale         = 4
 	FovY          = float64(15)
 	Near          = 1
 	Far           = 10
@@ -568,12 +568,12 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, includeTool bool) (*S
 			lObj.Texture = s.cache.GetTexture(url)
 		}
         shoulderPos := aeno.V(-2.4342, 5.2510, 0.0132)
-	    jointMatrix := aeno.Translate(shoulderPos)
-	    if isToolEquipped && userConfig.Items.Tool.Item != "none" {
-		    rot := aeno.Rotate(aeno.V(1, 0, 0), aeno.Radians(90))
-		    jointMatrix = jointMatrix.Mul(rot)
-	    }
-		lArmNode := NewSceneNode("LeftArm", lObj, jointMatrix)
+		jointMatrix := aeno.Translate(shoulderPos)
+		if isToolEquipped && userConfig.Items.Tool.Item != "none" {
+			rot := aeno.Rotate(aeno.V(1, 0, 0), aeno.Radians(90))
+			jointMatrix = jointMatrix.Mul(rot)
+		}
+		lArmNode := NewSceneNode("LeftArm", nil, jointMatrix)
 		torsoNode.AddChild(lArmNode)
 
 		if isToolEquipped {
