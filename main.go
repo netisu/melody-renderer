@@ -24,11 +24,11 @@ import (
 
 const (
 	Scale         = 4
-	FovY          = float64(15)
+	FovY          = 15
 	Near          = 1
 	Far           = 10
-	AmbColor      = "#666666"
-	LightColor    = "#999999"
+	AmbColor      = "#b0b0b0"
+	LightColor    = "#808080"
 	Dimensions    = 512
 	RenderTimeout = 20 * time.Second
 	UploadTimeout = 10 * time.Second
