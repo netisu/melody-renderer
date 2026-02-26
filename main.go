@@ -319,7 +319,7 @@ func (s *Server) handleUserRender(w http.ResponseWriter, hash string, config Use
 		var objects []*aeno.Object
 		rootNode.Flatten(aeno.Identity(), &objects)
 
-		buf, err := s.runRenderWithTimeout(objects, hsEye, hsCenter, hsUp, hsFovY, Dimensions, Scale, light, AmbColor, LightColor, Near, Far, false)
+		buf, err := s.runRenderWithTimeout(objects, hsEye, hsCenter, hsUp, hsFovY, Dimensions, Scale, light, AmbColor, LightColor, 0.1, 1000, false)
 		if err != nil {
 			log.Printf("Headshot render failed: %v", err)
 			return
