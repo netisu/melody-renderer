@@ -311,7 +311,7 @@ func (s *Server) handleUserRender(w http.ResponseWriter, hash string, config Use
 		defer wg.Done()
 		var (
 			hsFovY   = 25.5
-			hsEye    = aeno.V(4, 7, 13)
+			hsEye    = aeno.V(4, 7, 15)
 			hsCenter = aeno.V(-0.5, 6.8, 0)
 			hsUp     = aeno.V(0, 4, 0)
 		)
