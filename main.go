@@ -310,9 +310,9 @@ func (s *Server) handleUserRender(w http.ResponseWriter, hash string, config Use
 	go func() {
 		defer wg.Done()
 		var (
-			hsFovY   = 15.5
+			hsFovY   = 25.5
 			hsEye    = aeno.V(4, 7, 13)
-			hsCenter = aeno.V(-0.5, 4, 0)
+			hsCenter = aeno.V(-0.5, 6.8, 0)
 			hsUp     = aeno.V(0, 4, 0)
 		)
 		rootNode, _ := s.buildCharacterTree(config, false) // No tool for headshot
