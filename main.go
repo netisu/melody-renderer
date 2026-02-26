@@ -38,7 +38,7 @@ var (
 	eye    = aeno.V(0.75, 0.85, 2)
 	center = aeno.V(0, 0.06, 0)
 	up     = aeno.V(0, 1, 0)
-	light  = aeno.V(-3, 7, 10).Normalize()
+	light  = aeno.V(-1, 3, 1).Normalize()
 )
 
 type ItemData struct {
