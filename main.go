@@ -264,16 +264,7 @@ func (s *Server) handleRender(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.handleUserRender(w, req.Hash, u)
-
-	case "item_preview":
-		var i ItemConfig
-		if err := json.Unmarshal(req.RenderJson, &i); err != nil {
-			log.Printf("Item JSON error: %v", err)
-			http.Error(w, "Invalid item render body", http.StatusBadRequest)
-			return
-		}
-		s.handleItemPreviewRender(w, r, req.Hash, i)
-
+		
 	case "item":
 		var i ItemConfig
 		if err := json.Unmarshal(req.RenderJson, &i); err != nil {
@@ -281,7 +272,13 @@ func (s *Server) handleRender(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Invalid item render body", http.StatusBadRequest)
 			return
 		}
-		s.handleItemObjectRender(w, r, req.Hash, i)
+		
+		switch i.ItemType {
+    		case "pants", "shirt", "tshirt":
+        		s.handleItemPreviewRender(w, r, req.Hash, i)
+    		default:
+        		s.handleItemObjectRender(w, r, req.Hash, i)
+    	}
 
 	default:
 		http.Error(w, "Unknown RenderType", http.StatusBadRequest)
