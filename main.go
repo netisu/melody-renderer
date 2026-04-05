@@ -27,8 +27,8 @@ const (
 	FovY          = 15
 	Near          = 1
 	Far           = 10
-	AmbColor      = "#b0b0b0"
-	LightColor    = "#808080"
+	AmbColor      = "#808080"
+	LightColor    = "#68645c"
 	Dimensions    = 512
 	RenderTimeout = 20 * time.Second
 	UploadTimeout = 10 * time.Second
