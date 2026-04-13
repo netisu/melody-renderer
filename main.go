@@ -100,16 +100,14 @@ type AssetCache struct {
 	mu         sync.RWMutex
 	meshes     map[string]CachedMesh
 	textures   map[string]aeno.Texture
-	httpClient *http.Client
 	s3Client   *s3.S3
 	bucket     string
 }
 
-func NewAssetCache(client *http.Client) *AssetCache {
+func NewAssetCache(s3Client *s3.S3, bucket string) *AssetCache {
 	return &AssetCache{
 		meshes:     make(map[string]CachedMesh),
 		textures:   make(map[string]aeno.Texture),
-		httpClient: client,
 		s3Client: s3Client,
 		bucket:   bucket,
 	}
@@ -152,7 +150,6 @@ type Config struct {
 type Server struct {
 	config     *Config
 	cache      *AssetCache
-	httpClient *http.Client
 }
 
 var hatKeyPattern = regexp.MustCompile(`^hat_\d+$`)
@@ -217,7 +214,6 @@ func main() {
 		log.Fatalf("Failed to create S3 session: %v", err)
 	}
 
-	httpClient := &http.Client{Timeout: 10 * time.Second}
 
 	s3Client := s3.New(sess)
 	bucketName := os.Getenv("S3_BUCKET")
@@ -229,7 +225,6 @@ func main() {
 			S3Uploader:    s3.New(sess),
 		},
 		cache:      NewAssetCache(s3Client, bucketName),
-		httpClient: httpClient,
 	}
 
 	http.HandleFunc("/", server.handleRender)
