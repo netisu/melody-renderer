@@ -487,6 +487,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, includeTool bool) (*S
 	getMesh := func(hash, defaultName string) (*aeno.Mesh, aeno.Matrix) {
 		if hash == "" || hash == defaultName {
 			return s.cache.GetMesh(fmt.Sprintf("assets/%s.glb", defaultName))
+		}
 		return s.cache.GetMesh(fmt.Sprintf("uploads/%s.obj", hash))
 	}
 
@@ -606,7 +607,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, includeTool bool) (*S
 
 	return rootNode, isToolEquipped
 }
-}
+
 func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
 	if itemData.Item == "none" || itemData.Item == "" {
 		return nil
@@ -741,7 +742,7 @@ func (c *AssetCache) GetMesh(key string) (*aeno.Mesh, aeno.Matrix) {
 		c.meshes[key] = CachedMesh{nil, aeno.Identity()}
 		return nil, aeno.Identity()
 	}
-	defer resp.Body.Close()
+	defer req.Body.Close()
 
 	var mesh *aeno.Mesh
 	matrix := aeno.Identity()
