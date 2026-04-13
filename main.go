@@ -248,7 +248,7 @@ func main() {
 	}
 }
 
-func (s *Server) handleRender(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleRender(c context.Context, w http.ResponseWriter, r *http.Request) {
 	if s.config.PostKey != "" && r.Header.Get("Aeo-Access-Key") != s.config.PostKey {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -293,9 +293,9 @@ func (s *Server) handleRender(w http.ResponseWriter, r *http.Request) {
 		
 		switch i.ItemType {
     		case "pants", "shirt", "tshirt":
-        		s.handleItemPreviewRender(w, r, req.Hash, i)
+        		s.handleItemPreviewRender(c, w, r, req.Hash, i)
     		default:
-        		s.handleItemObjectRender(w, r, req.Hash, i)
+        		s.handleItemObjectRender(c, w, r, req.Hash, i)
     	}
 
 	default:
@@ -418,7 +418,7 @@ func (s *Server) handleItemPreviewRender(ctx context.Context, w http.ResponseWri
 	fmt.Fprintln(w, "Preview processed.")
 }
 
-func (s *Server) handleItemObjectRender(w http.ResponseWriter, r *http.Request, hash string, i ItemConfig) {
+func (s *Server) handleItemObjectRender(c context.Context, w http.ResponseWriter, r *http.Request, hash string, i ItemConfig) {
 	start := time.Now()
 
 	var rootNode *SceneNode
@@ -768,7 +768,7 @@ func (c *AssetCache) GetMesh(ctx context.Context, key string) (*aeno.Mesh, aeno.
 	return mesh, matrix
 }
 
-func (c *AssetCache) GetTexture(key string) aeno.Texture {
+func (c *AssetCache) GetTexture(ctx context.Context, key string) aeno.Texture {
 	c.mu.RLock()
 	tex, ok := c.textures[key]
 	c.mu.RUnlock()
