@@ -484,7 +484,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, includeTool bool) (*S
 	cdnURL := s.config.CDNURL
 	isToolEquipped := includeTool && userConfig.Items.Tool.Item != "none"
 
-	getMesh := func(hash, defaultName string) *aeno.Mesh {
+	getMesh := func(hash, defaultName string) (*aeno.Mesh, aeno.Matrix) {
 		if hash == "" || hash == defaultName {
 			return s.cache.GetMesh(fmt.Sprintf("%s/assets/%s.glb", cdnURL, defaultName))
 		}
