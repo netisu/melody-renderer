@@ -349,7 +349,7 @@ func (s *Server) handleUserRender(w http.ResponseWriter, hash string, config Use
 	w.WriteHeader(http.StatusOK)
 }
 
-func (s *Server) handleItemPreviewRender(w http.ResponseWriter, r *http.Request, hash string, i ItemConfig) {
+func (s *Server) handleItemPreviewRender(ctx context.Context, w http.ResponseWriter, r *http.Request, hash string, i ItemConfig) {
 	start := time.Now()
 
 	previewConfig := NewDefaultUserConfig()
@@ -393,7 +393,7 @@ func (s *Server) handleItemPreviewRender(w http.ResponseWriter, r *http.Request,
 			previewConfig.BodyParts.RightLeg = i.Item.Item
 		}
 	}
-	rootNode, _ := s.buildCharacterTree(ctx, previewConfig, true)
+	rootNode, _ := s.(ctx, previewConfig, true)
 
 	var objects []*aeno.Object
 	rootNode.Flatten(aeno.Identity(), &objects)
@@ -613,7 +613,7 @@ func (s *Server) buildCharacterTree(ctx context.Context, userConfig UserConfig, 
 		}
 	}
 
-	if obj := s.RenderItem(userConfig.Items.Addon); obj != nil {
+	if obj := s.RenderItem(ctx, userConfig.Items.Addon); obj != nil {
 		torsoNode.AddChild(NewSceneNode("Addon", obj, aeno.Identity()))
 	}
 
@@ -693,7 +693,7 @@ func (s *Server) generateBodyPartObject(ctx context.Context, config ItemConfig) 
 
 	meshURL := fmt.Sprintf("uploads/%s.obj", config.Item.Item)
 
-	mesh, meshMatrix := s.cache.GetMesh(meshURL)
+	mesh, meshMatrix := s.cache.GetMesh(ctx, meshURL)
 	if mesh != nil {
 		obj := &aeno.Object{
 			Mesh:    mesh.Copy(),
