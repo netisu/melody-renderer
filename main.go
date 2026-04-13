@@ -135,7 +135,7 @@ func (n *SceneNode) Flatten(parentMatrix aeno.Matrix, objects *[]*aeno.Object, f
 	}
 	worldMatrix := parentMatrix.Mul(n.LocalMatrix)
 	if n.Object != nil {
-		obj := n.Object.Copy()
+		obj := n.Object
 		obj.Matrix = worldMatrix.Mul(obj.Matrix)
 		*objects = append(*objects, obj)
 	}
@@ -399,7 +399,7 @@ func (s *Server) handleItemPreviewRender(ctx context.Context, w http.ResponseWri
 	rootNode, _ := s.buildCharacterTree(ctx, previewConfig, true)
 
 	var objects []*aeno.Object
-	rootNode.Flatten(aeno.Identity(), &objects)
+	rootNode.Flatten(aeno.Identity(), &objects, nil)
 
 	outputKey := path.Join("thumbnails", hash+".png")
 
@@ -433,7 +433,7 @@ func (s *Server) handleItemObjectRender(c context.Context, w http.ResponseWriter
 	}
 
 	var objects []*aeno.Object
-	rootNode.Flatten(aeno.Identity(), &objects)
+	rootNode.Flatten(aeno.Identity(), &objects, nil)
 
 	if len(objects) == 0 {
 		log.Println("Warning: No objects generated for ItemObjectRender")
