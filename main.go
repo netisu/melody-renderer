@@ -508,7 +508,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, includeTool bool) (*S
 	}
 	if userConfig.Items.Shirt.Item != "none" {
 		key := fmt.Sprintf("uploads/%s.png", getTextureHash(userConfig.Items.Shirt))
-		torsoObj.Texture = s.cache.GetTexture(url)
+		torsoObj.Texture = s.cache.GetTexture(key)
 	}
 	torsoNode := NewSceneNode("Torso", torsoObj, aeno.Identity())
 	rootNode.AddChild(torsoNode)
@@ -611,13 +611,12 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, includeTool bool) (*S
 
 	return rootNode, isToolEquipped
 }
-
+}
 func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
 	if itemData.Item == "none" || itemData.Item == "" {
 		return nil
 	}
 
-	cdnURL := s.config.CDNURL
 	meshKey := fmt.Sprintf("uploads/%s.obj", itemData.Item)
 	textureKey := fmt.Sprintf("uploads/%s.png", itemData.Item)
 
