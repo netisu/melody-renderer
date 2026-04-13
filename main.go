@@ -666,7 +666,7 @@ func (s *Server) AddFace(ctx context.Context, faceData ItemData) aeno.Texture {
 func (s *Server) generateItemObject(ctx context.Context, config ItemConfig) *SceneNode {
 	rootNode := NewSceneNode("ItemRoot", nil, aeno.Identity())
 	if config.ItemType == "face" {
-		headMesh, headMatrix := s.cache.GetMesh(ctx, "/assets/cranium.glb")
+		headMesh, headMatrix := s.cache.GetMesh(ctx, "assets/cranium.glb")
 		if headMesh != nil {
 			headObj := &aeno.Object{
 				Mesh:    headMesh.Copy(),
