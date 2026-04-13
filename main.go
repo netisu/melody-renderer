@@ -510,6 +510,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, includeTool bool) (*S
 	rootNode.AddChild(torsoNode)
 
 	headMesh, headMatrix := getMesh(userConfig.BodyParts.Head, "cranium")
+	headMatrix = aeno.Translate(aeno.V(0, 0, 0))
 	if headMesh != nil {
 		headObj := &aeno.Object{
 			Mesh:    headMesh.Copy(),
