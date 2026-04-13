@@ -91,16 +91,21 @@ type RenderRequest struct {
 	RenderJson json.RawMessage `json:"RenderJson"` // Delay parsing until we know type
 }
 
+type CachedMesh struct {
+	Mesh   *aeno.Mesh
+	Matrix aeno.Matrix
+}
+
 type AssetCache struct {
 	mu         sync.RWMutex
-	meshes     map[string]*aeno.Mesh
+	meshes     map[string]CachedMesh
 	textures   map[string]aeno.Texture
 	httpClient *http.Client
 }
 
 func NewAssetCache(client *http.Client) *AssetCache {
 	return &AssetCache{
-		meshes:     make(map[string]*aeno.Mesh),
+		meshes:     make(map[string]CachedMesh),
 		textures:   make(map[string]aeno.Texture),
 		httpClient: client,
 	}
@@ -124,7 +129,7 @@ func (n *SceneNode) AddChild(child *SceneNode) {
 func (n *SceneNode) Flatten(parentMatrix aeno.Matrix, objects *[]*aeno.Object) {
 	worldMatrix := parentMatrix.Mul(n.LocalMatrix)
 	if n.Object != nil {
-		n.Object.Matrix = worldMatrix
+		n.Object.Matrix = worldMatrix.Mul(n.Object.Matrix)
 		*objects = append(*objects, n.Object)
 	}
 	for _, child := range n.Children {
@@ -488,14 +493,14 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, includeTool bool) (*S
 
 	rootNode := NewSceneNode("Character", nil, aeno.Identity())
 
-	torsoMesh := getMesh(userConfig.BodyParts.Torso, "chesticle")
+	torsoMesh, torsoMatrix := getMesh(userConfig.BodyParts.Torso, "chesticle")
 	if torsoMesh == nil {
 		return rootNode, false
 	}
 	torsoObj := &aeno.Object{
 		Mesh:   torsoMesh.Copy(),
 		Color:  aeno.HexColor(userConfig.Colors["Torso"]),
-		Matrix: aeno.Identity(),
+		Matrix: torsoMatrix,
 	}
 	if userConfig.Items.Shirt.Item != "none" {
 		url := fmt.Sprintf("%s/uploads/%s.png", cdnURL, getTextureHash(userConfig.Items.Shirt))
@@ -504,14 +509,14 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, includeTool bool) (*S
 	torsoNode := NewSceneNode("Torso", torsoObj, aeno.Identity())
 	rootNode.AddChild(torsoNode)
 
-	headMesh := getMesh(userConfig.BodyParts.Head, "cranium")
+	headMesh, headMatrix := getMesh(userConfig.BodyParts.Head, "cranium")
 	headMatrix := aeno.Translate(aeno.V(0, 0, 0))
 	if headMesh != nil {
 		headObj := &aeno.Object{
 			Mesh:    headMesh.Copy(),
 			Color:   aeno.HexColor(userConfig.Colors["Head"]),
 			Texture: s.AddFace(userConfig.Items.Face),
-			Matrix:  aeno.Identity(),
+			Matrix:  headMatrix,
 		}
 		headNode := NewSceneNode("Head", headObj, headMatrix)
 		torsoNode.AddChild(headNode)
@@ -536,9 +541,9 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, includeTool bool) (*S
 			color = userConfig.Colors["RightLeg"]
 		}
 
-		mesh := getMesh(hash, leg.Default)
+		mesh, meshMatrix := getMesh(hash, leg.Default)
 		if mesh != nil {
-			legObj := &aeno.Object{Mesh: mesh.Copy(), Color: aeno.HexColor(color), Matrix: aeno.Identity()}
+			legObj := &aeno.Object{Mesh: mesh.Copy(), Color: aeno.HexColor(color), Matrix: meshMatrix}
 			if userConfig.Items.Pants.Item != "none" {
 				url := fmt.Sprintf("%s/uploads/%s.png", cdnURL, getTextureHash(userConfig.Items.Pants))
 				legObj.Texture = s.cache.GetTexture(url)
@@ -547,9 +552,9 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, includeTool bool) (*S
 		}
 	}
 
-	rArmMesh := getMesh(userConfig.BodyParts.RightArm, "arm_right")
+	rArmMesh, rArmMatrix := getMesh(userConfig.BodyParts.RightArm, "arm_right")
 	if rArmMesh != nil {
-		rObj := &aeno.Object{Mesh: rArmMesh.Copy(), Color: aeno.HexColor(userConfig.Colors["RightArm"]), Matrix: aeno.Identity()}
+		rObj := &aeno.Object{Mesh: rArmMesh.Copy(), Color: aeno.HexColor(userConfig.Colors["RightArm"]), Matrix: rArmMatrix}
 		if userConfig.Items.Shirt.Item != "none" {
 			url := fmt.Sprintf("%s/uploads/%s.png", cdnURL, getTextureHash(userConfig.Items.Shirt))
 			rObj.Texture = s.cache.GetTexture(url)
@@ -567,10 +572,10 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, includeTool bool) (*S
 	torsoNode.AddChild(leftArmNode)
 	
 	var lArmMesh *aeno.Mesh
-		lArmMesh = getMesh(userConfig.BodyParts.LeftArm, "arm_left")
+		lArmMesh, lArmMatrix = getMesh(userConfig.BodyParts.LeftArm, "arm_left")
 
 	if lArmMesh != nil {
-		lArmObj := &aeno.Object{Mesh: lArmMesh.Copy(), Color: aeno.HexColor(userConfig.Colors["LeftArm"]), Matrix: aeno.Identity()}
+		lArmObj := &aeno.Object{Mesh: lArmMesh.Copy(), Color: aeno.HexColor(userConfig.Colors["LeftArm"]), Matrix: lArmMatrix}
 		if userConfig.Items.Shirt.Item != "none" {
 			url := fmt.Sprintf("%s/uploads/%s.png", cdnURL, getTextureHash(userConfig.Items.Shirt))
 			lArmObj.Texture = s.cache.GetTexture(url)
@@ -588,10 +593,10 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, includeTool bool) (*S
 
 	if userConfig.Items.Tshirt.Item != "none" {
 		teeHash := getTextureHash(userConfig.Items.Tshirt)
-		teeMesh := s.cache.GetMesh(fmt.Sprintf("%s/assets/tee.glb", cdnURL))
+		teeMesh, teeMatrix := s.cache.GetMesh(fmt.Sprintf("%s/assets/tee.glb", cdnURL))
 		if teeMesh != nil {
 			url := fmt.Sprintf("%s/uploads/%s.png", cdnURL, teeHash)
-			teeObj := &aeno.Object{Mesh: teeMesh.Copy(), Color: aeno.Transparent, Texture: s.cache.GetTexture(url), Matrix: aeno.Identity()}
+			teeObj := &aeno.Object{Mesh: teeMesh.Copy(), Color: aeno.Transparent, Texture: s.cache.GetTexture(url), Matrix: teeMatrix}
 			torsoNode.AddChild(NewSceneNode("Tshirt", teeObj, aeno.Identity()))
 		}
 	}
@@ -621,7 +626,7 @@ func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
 		}
 	}
 
-	finalMesh := s.cache.GetMesh(meshURL)
+	finalMesh, finalMatrix := s.cache.GetMesh(meshURL)
 
 	if finalMesh == nil {
 		log.Printf("Warning: Could not render item %s", meshURL)
@@ -632,7 +637,7 @@ func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
 		Mesh:    finalMesh.Copy(),
 		Color:   aeno.Transparent,
 		Texture: s.cache.GetTexture(textureURL),
-		Matrix:  aeno.Identity(),
+		Matrix:  finalMatrix,
 	}
 }
 
@@ -650,13 +655,13 @@ func (s *Server) AddFace(faceData ItemData) aeno.Texture {
 func (s *Server) generateItemObject(config ItemConfig) *SceneNode {
 	rootNode := NewSceneNode("ItemRoot", nil, aeno.Identity())
 	if config.ItemType == "face" {
-		headMesh := s.cache.GetMesh(s.config.CDNURL + "/assets/cranium.glb")
+		headMesh, headMatrix := s.cache.GetMesh(s.config.CDNURL + "/assets/cranium.glb")
 		if headMesh != nil {
 			headObj := &aeno.Object{
 				Mesh:    headMesh.Copy(),
 				Color:   aeno.HexColor("d3d3d3"),
 				Texture: s.AddFace(config.Item),
-				Matrix:  aeno.Identity(),
+				Matrix:  headMatrix,
 			}
 			rootNode.AddChild(NewSceneNode("HeadForFace", headObj, aeno.Identity()))
 		}
@@ -681,13 +686,13 @@ func (s *Server) generateBodyPartObject(config ItemConfig) *SceneNode {
 
 	meshURL := fmt.Sprintf("%s/uploads/%s.obj", cdnURL, partName)
 
-	mesh := s.cache.GetMesh(meshURL)
+	mesh, meshMatrix := s.cache.GetMesh(meshURL)
 	if mesh != nil {
 		obj := &aeno.Object{
 			Mesh:    mesh.Copy(),
 			Color:   aeno.HexColor("d3d3d3"),
 			Texture: s.cache.GetTexture(textureURL),
-			Matrix:  aeno.Identity(),
+			Matrix: meshMatrix,
 		}
 		rootNode.AddChild(NewSceneNode("BodyPart", obj, aeno.Identity()))
 	}
@@ -717,7 +722,7 @@ func (s *Server) uploadToS3(ctx context.Context, data []byte, key string) error 
 	return nil
 }
 
-func (c *AssetCache) GetMesh(url string) *aeno.Mesh {
+func (c *AssetCache) GetMesh(url string) (*aeno.Mesh, aeno.Matrix) {
 	c.mu.RLock()
 	mesh, ok := c.meshes[url]
 	c.mu.RUnlock()
@@ -742,13 +747,16 @@ func (c *AssetCache) GetMesh(url string) *aeno.Mesh {
 	}
 	defer resp.Body.Close()
 
+	var mesh *aeno.Mesh
+	matrix := aeno.Identity()
+	
 	if path.Ext(url) == ".glb" {
-		mesh, _, _ = aeno.LoadGLTFFromReader(resp.Body)
+		mesh, matrix, _ = aeno.LoadGLTFFromReader(resp.Body)
 	} else {
 		mesh, _ = aeno.LoadOBJFromReader(resp.Body)
 	}
-	c.meshes[url] = mesh
-	return mesh
+	c.meshes[url] = CachedMesh{mesh, matrix}
+	return mesh, matrix
 }
 
 func (c *AssetCache) GetTexture(url string) aeno.Texture {
