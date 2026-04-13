@@ -312,7 +312,7 @@ func (s *Server) handleUserRender(w http.ResponseWriter, hash string, config Use
 	defer cancel()
 	go func() {
 		defer wg.Done()
-		rootNode, _ := s.buildCharacterTree(config, true)
+		rootNode, _ := s.buildCharacterTree(ctx, config, true)
 		var objects []*aeno.Object
 		rootNode.Flatten(aeno.Identity(), &objects)
 
@@ -332,7 +332,7 @@ func (s *Server) handleUserRender(w http.ResponseWriter, hash string, config Use
 			hsCenter = aeno.V(-0.5, 6.8, 0)
 			hsUp     = aeno.V(0, 4, 0)
 		)
-		rootNode, _ := s.buildCharacterTree(config, false) // No tool for headshot
+		rootNode, _ := s.buildCharacterTree(ctx, config, false) // No tool for headshot
 		var objects []*aeno.Object
 		rootNode.Flatten(aeno.Identity(), &objects)
 
@@ -393,14 +393,14 @@ func (s *Server) handleItemPreviewRender(w http.ResponseWriter, r *http.Request,
 			previewConfig.BodyParts.RightLeg = i.Item.Item
 		}
 	}
-	rootNode, _ := s.buildCharacterTree(previewConfig, true)
+	rootNode, _ := s.buildCharacterTree(ctx, previewConfig, true)
 
 	var objects []*aeno.Object
 	rootNode.Flatten(aeno.Identity(), &objects)
 
 	outputKey := path.Join("thumbnails", hash+".png")
 
-	buf, err := s.runRenderWithContext(objects, eye, center, up, FovY, Dimensions, Scale, light, AmbColor, LightColor, Near, Far, true)
+	buf, err := s.runRenderWithContext(ctx, objects, eye, center, up, FovY, Dimensions, Scale, light, AmbColor, LightColor, Near, Far, true)
 	if err != nil {
 		log.Printf("Preview render failed: %v", err)
 		http.Error(w, "Render failed", http.StatusGatewayTimeout)
@@ -424,9 +424,9 @@ func (s *Server) handleItemObjectRender(w http.ResponseWriter, r *http.Request, 
 	var rootNode *SceneNode
 	switch i.ItemType {
 	case "head", "torso", "left_arm", "right_arm", "left_leg", "right_leg", "tool_arm":
-		rootNode = s.generateBodyPartObject(i)
+		rootNode = s.generateBodyPartObject(ctx, i)
 	default:
-		rootNode = s.generateItemObject(i)
+		rootNode = s.generateItemObject(ctx, i)
 	}
 
 	var objects []*aeno.Object
@@ -438,7 +438,7 @@ func (s *Server) handleItemObjectRender(w http.ResponseWriter, r *http.Request, 
 
 	outputKey := path.Join("thumbnails", hash+".png")
 
-	buf, err := s.runRenderWithContext(objects, eye, center, up, FovY, Dimensions, Scale, light, AmbColor, LightColor, Near, Far, true)
+	buf, err := s.runRenderWithContext(ctx, objects, eye, center, up, FovY, Dimensions, Scale, light, AmbColor, LightColor, Near, Far, true)
 	if err != nil {
 		log.Printf("Object render failed: %v", err)
 		http.Error(w, "Render failed", http.StatusGatewayTimeout)
@@ -534,7 +534,7 @@ func (s *Server) buildCharacterTree(ctx context.Context, userConfig UserConfig, 
 
 		for key, hatData := range userConfig.Items.Hats {
 			if hatData.Item != "none" {
-				if hatObj := s.RenderItem(hatData); hatObj != nil {
+				if hatObj := s.RenderItem(ctx, hatData); hatObj != nil {
 					headNode.AddChild(NewSceneNode(key, hatObj, aeno.Identity()))
 				}
 			}
@@ -597,7 +597,7 @@ func (s *Server) buildCharacterTree(ctx context.Context, userConfig UserConfig, 
 		leftArmNode.AddChild(lArmMeshNode)
 
 		if isToolEquipped && userConfig.Items.Tool.Item != "none" {
-        	if toolObj := s.RenderItem(userConfig.Items.Tool); toolObj != nil {
+        	if toolObj := s.RenderItem(ctx, userConfig.Items.Tool); toolObj != nil {
             	torsoNode.AddChild(NewSceneNode("Tool", toolObj, aeno.Identity()))
         	}
     	}
@@ -605,7 +605,7 @@ func (s *Server) buildCharacterTree(ctx context.Context, userConfig UserConfig, 
 
 	if userConfig.Items.Tshirt.Item != "none" {
 		teeHash := getTextureHash(userConfig.Items.Tshirt)
-		teeMesh, teeMatrix := s.cache.GetMesh(fmt.Sprintf("%s/assets/tee.glb", cdnURL))
+		teeMesh, teeMatrix := s.cache.GetMesh(ctx, fmt.Sprintf("%s/assets/tee.glb", cdnURL))
 		if teeMesh != nil {
 			key := fmt.Sprintf("uploads/%s.png", teeHash)
 			teeObj := &aeno.Object{Mesh: teeMesh.Copy(), Color: aeno.Transparent, Texture: s.cache.GetTexture(key), Matrix: teeMatrix}
