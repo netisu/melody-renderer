@@ -724,16 +724,16 @@ func (s *Server) uploadToS3(ctx context.Context, data []byte, key string) error 
 
 func (c *AssetCache) GetMesh(url string) (*aeno.Mesh, aeno.Matrix) {
 	c.mu.RLock()
-	mesh, ok := c.meshes[url]
+	cached, ok := c.meshes[url]
 	c.mu.RUnlock()
 	if ok {
-		return mesh
+		return cached.Mesh, cached.Matrix
 	}
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if mesh, ok = c.meshes[url]; ok {
-		return mesh
+	if cached, ok = c.meshes[url]; ok {
+		return cached.Mesh, cached.Matrix
 	}
 
 	resp, err := c.httpClient.Get(url)
