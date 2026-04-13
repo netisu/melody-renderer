@@ -324,7 +324,7 @@ func (s *Server) handleUserRender(w http.ResponseWriter, hash string, config Use
 		rootNode.Flatten(aeno.Identity(), &avatarObjects, nil)
 		buf, err := s.runRenderWithContext(ctx, avatarObjects, eye, center, up, FovY, Dimensions, Scale, light, AmbColor, LightColor, Near, Far, true)
 		if err == nil {
-			_ = s.uploadToS3(ctx, buf, path.Join("avatars", hash+".png"))
+			_ = s.uploadToS3(ctx, buf, path.Join("thumbnails", hash+".png"))
 		}
 	}()
 
