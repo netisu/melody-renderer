@@ -98,17 +98,17 @@ type CachedMesh struct {
 }
 
 type AssetCache struct {
-	mu         sync.RWMutex
-	meshes     map[string]CachedMesh
-	textures   map[string]aeno.Texture
-	s3Client   *s3.Client
-	bucket     string
+	mu       sync.RWMutex
+	meshes   map[string]CachedMesh
+	textures map[string]aeno.Texture
+	s3Client *s3.Client
+	bucket   string
 }
 
 func NewAssetCache(s3Client *s3.Client, bucket string) *AssetCache {
 	return &AssetCache{
-		meshes:     make(map[string]CachedMesh),
-		textures:   make(map[string]aeno.Texture),
+		meshes:   make(map[string]CachedMesh),
+		textures: make(map[string]aeno.Texture),
 		s3Client: s3Client,
 		bucket:   bucket,
 	}
@@ -129,14 +129,18 @@ func (n *SceneNode) AddChild(child *SceneNode) {
 	n.Children = append(n.Children, child)
 }
 
-func (n *SceneNode) Flatten(parentMatrix aeno.Matrix, objects *[]*aeno.Object) {
+func (n *SceneNode) Flatten(parentMatrix aeno.Matrix, objects *[]*aeno.Object, filter func(name string) bool) {
+	if filter != nil && filter(n.Name) {
+		return
+	}
 	worldMatrix := parentMatrix.Mul(n.LocalMatrix)
 	if n.Object != nil {
-		n.Object.Matrix = worldMatrix.Mul(n.Object.Matrix)
-		*objects = append(*objects, n.Object)
+		obj := n.Object.Copy()
+		obj.Matrix = worldMatrix.Mul(obj.Matrix)
+		*objects = append(*objects, obj)
 	}
 	for _, child := range n.Children {
-		child.Flatten(worldMatrix, objects)
+		child.Flatten(worldMatrix, objects, filter)
 	}
 }
 
@@ -145,12 +149,12 @@ type Config struct {
 	ServerAddress string
 	S3Bucket      string
 	CDNURL        string
-	S3Client    *s3.Client
+	S3Client      *s3.Client
 }
 
 type Server struct {
-	config     *Config
-	cache      *AssetCache
+	config *Config
+	cache  *AssetCache
 }
 
 var hatKeyPattern = regexp.MustCompile(`^hat_\d+$`)
@@ -248,7 +252,8 @@ func main() {
 	}
 }
 
-func (s *Server) handleRender(c context.Context, w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleRender(w http.ResponseWriter, r *http.Request) {
+	c := r.Context()
 	if s.config.PostKey != "" && r.Header.Get("Aeo-Access-Key") != s.config.PostKey {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -282,7 +287,7 @@ func (s *Server) handleRender(c context.Context, w http.ResponseWriter, r *http.
 			return
 		}
 		s.handleUserRender(w, req.Hash, u)
-		
+
 	case "item":
 		var i ItemConfig
 		if err := json.Unmarshal(req.RenderJson, &i); err != nil {
@@ -290,13 +295,13 @@ func (s *Server) handleRender(c context.Context, w http.ResponseWriter, r *http.
 			http.Error(w, "Invalid item render body", http.StatusBadRequest)
 			return
 		}
-		
+
 		switch i.ItemType {
-    		case "pants", "shirt", "tshirt":
-        		s.handleItemPreviewRender(c, w, r, req.Hash, i)
-    		default:
-        		s.handleItemObjectRender(c, w, r, req.Hash, i)
-    	}
+		case "pants", "shirt", "tshirt":
+			s.handleItemPreviewRender(c, w, r, req.Hash, i)
+		default:
+			s.handleItemObjectRender(c, w, r, req.Hash, i)
+		}
 
 	default:
 		http.Error(w, "Unknown RenderType", http.StatusBadRequest)
@@ -305,43 +310,41 @@ func (s *Server) handleRender(c context.Context, w http.ResponseWriter, r *http.
 
 func (s *Server) handleUserRender(w http.ResponseWriter, hash string, config UserConfig) {
 	start := time.Now()
+	ctx, cancel := context.WithTimeout(context.Background(), RenderTimeout)
+	defer cancel()
+
+	rootNode, _ := s.buildCharacterTree(ctx, config, true)
+
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	ctx, cancel := context.WithTimeout(context.Background(), RenderTimeout)
-	defer cancel()
 	go func() {
 		defer wg.Done()
-		rootNode, _ := s.buildCharacterTree(ctx, config, true)
-		var objects []*aeno.Object
-		rootNode.Flatten(aeno.Identity(), &objects)
-
-		buf, err := s.runRenderWithContext(ctx, objects, eye, center, up, FovY, Dimensions, Scale, light, AmbColor, LightColor, Near, Far, true)
-		if err != nil {
-			log.Printf("User render failed: %v", err)
-			return
+		var avatarObjects []*aeno.Object
+		rootNode.Flatten(aeno.Identity(), &avatarObjects, nil)
+		buf, err := s.runRenderWithContext(ctx, avatarObjects, eye, center, up, FovY, Dimensions, Scale, light, AmbColor, LightColor, Near, Far, true)
+		if err == nil {
+			_ = s.uploadToS3(ctx, buf, path.Join("avatars", hash+".png"))
 		}
-		_ = s.uploadToS3(ctx, buf, path.Join("thumbnails", hash+".png"))
 	}()
 
 	go func() {
 		defer wg.Done()
+		var headshotObjects []*aeno.Object
+		rootNode.Flatten(aeno.Identity(), &headshotObjects, func(name string) bool {
+			return name == "Tool"
+		})
 		var (
 			hsFovY   = 25.5
 			hsEye    = aeno.V(4.5, 11, 13)
 			hsCenter = aeno.V(-0.5, 6.8, 0)
 			hsUp     = aeno.V(0, 4, 0)
 		)
-		rootNode, _ := s.buildCharacterTree(ctx, config, false) // No tool for headshot
-		var objects []*aeno.Object
-		rootNode.Flatten(aeno.Identity(), &objects)
 
-		buf, err := s.runRenderWithContext(ctx, objects, hsEye, hsCenter, hsUp, hsFovY, Dimensions, Scale, light, AmbColor, LightColor, 0.1, 1000, false)
-		if err != nil {
-			log.Printf("Headshot render failed: %v", err)
-			return
+		buf, err := s.runRenderWithContext(ctx, headshotObjects, hsEye, hsCenter, hsUp, hsFovY, Dimensions, Scale, light, AmbColor, LightColor, 0.1, 1000, false)
+		if err == nil {
+			_ = s.uploadToS3(ctx, buf, path.Join("thumbnails", hash+"_headshot.png"))
 		}
-		_ = s.uploadToS3(ctx, buf, path.Join("thumbnails", hash+"_headshot.png"))
 	}()
 
 	wg.Wait()
@@ -424,9 +427,9 @@ func (s *Server) handleItemObjectRender(c context.Context, w http.ResponseWriter
 	var rootNode *SceneNode
 	switch i.ItemType {
 	case "head", "torso", "left_arm", "right_arm", "left_leg", "right_leg", "tool_arm":
-		rootNode = s.generateBodyPartObject(ctx, i)
+		rootNode = s.generateBodyPartObject(c, i)
 	default:
-		rootNode = s.generateItemObject(ctx, i)
+		rootNode = s.generateItemObject(c, i)
 	}
 
 	var objects []*aeno.Object
@@ -438,7 +441,7 @@ func (s *Server) handleItemObjectRender(c context.Context, w http.ResponseWriter
 
 	outputKey := path.Join("thumbnails", hash+".png")
 
-	buf, err := s.runRenderWithContext(ctx, objects, eye, center, up, FovY, Dimensions, Scale, light, AmbColor, LightColor, Near, Far, true)
+	buf, err := s.runRenderWithContext(c, objects, eye, center, up, FovY, Dimensions, Scale, light, AmbColor, LightColor, Near, Far, true)
 	if err != nil {
 		log.Printf("Object render failed: %v", err)
 		http.Error(w, "Render failed", http.StatusGatewayTimeout)
@@ -466,7 +469,7 @@ func (s *Server) runRenderWithContext(
 	near, far float64,
 	fit bool,
 ) ([]byte, error) {
-	
+
 	type result struct {
 		data []byte
 		err  error
@@ -516,7 +519,7 @@ func (s *Server) buildCharacterTree(ctx context.Context, userConfig UserConfig, 
 	}
 	if userConfig.Items.Shirt.Item != "none" {
 		key := fmt.Sprintf("uploads/%s.png", getTextureHash(userConfig.Items.Shirt))
-		torsoObj.Texture = s.cache.GetTexture(key)
+		torsoObj.Texture = s.cache.GetTexture(ctx, key)
 	}
 	torsoNode := NewSceneNode("Torso", torsoObj, aeno.Identity())
 	rootNode.AddChild(torsoNode)
@@ -557,7 +560,7 @@ func (s *Server) buildCharacterTree(ctx context.Context, userConfig UserConfig, 
 			legObj := &aeno.Object{Mesh: mesh.Copy(), Color: aeno.HexColor(color), Matrix: meshMatrix}
 			if userConfig.Items.Pants.Item != "none" {
 				key := fmt.Sprintf("uploads/%s.png", getTextureHash(userConfig.Items.Pants))
-				legObj.Texture = s.cache.GetTexture(key)
+				legObj.Texture = s.cache.GetTexture(ctx, key)
 			}
 			torsoNode.AddChild(NewSceneNode(leg.Key, legObj, aeno.Identity()))
 		}
@@ -568,7 +571,7 @@ func (s *Server) buildCharacterTree(ctx context.Context, userConfig UserConfig, 
 		rObj := &aeno.Object{Mesh: rArmMesh.Copy(), Color: aeno.HexColor(userConfig.Colors["RightArm"]), Matrix: rArmMatrix}
 		if userConfig.Items.Shirt.Item != "none" {
 			key := fmt.Sprintf("uploads/%s.png", getTextureHash(userConfig.Items.Shirt))
-			rObj.Texture = s.cache.GetTexture(key)
+			rObj.Texture = s.cache.GetTexture(ctx, key)
 		}
 		torsoNode.AddChild(NewSceneNode("RightArm", rObj, aeno.Identity()))
 	}
@@ -581,26 +584,26 @@ func (s *Server) buildCharacterTree(ctx context.Context, userConfig UserConfig, 
 	}
 	leftArmNode := NewSceneNode("LeftArm", nil, jointMatrix) // Joint
 	torsoNode.AddChild(leftArmNode)
-	
+
 	var lArmMesh *aeno.Mesh
 	var lArmMatrix aeno.Matrix
-		lArmMesh, lArmMatrix = getMesh(userConfig.BodyParts.LeftArm, "arm_left")
+	lArmMesh, lArmMatrix = getMesh(userConfig.BodyParts.LeftArm, "arm_left")
 
 	if lArmMesh != nil {
 		lArmObj := &aeno.Object{Mesh: lArmMesh.Copy(), Color: aeno.HexColor(userConfig.Colors["LeftArm"]), Matrix: lArmMatrix}
 		if userConfig.Items.Shirt.Item != "none" {
 			key := fmt.Sprintf("uploads/%s.png", getTextureHash(userConfig.Items.Shirt))
-			lArmObj.Texture = s.cache.GetTexture(key)
+			lArmObj.Texture = s.cache.GetTexture(ctx, key)
 		}
 		meshMatrix := aeno.Translate(shoulderPos.Negate())
 		lArmMeshNode := NewSceneNode("LeftArmMesh", lArmObj, meshMatrix)
 		leftArmNode.AddChild(lArmMeshNode)
 
 		if isToolEquipped && userConfig.Items.Tool.Item != "none" {
-        	if toolObj := s.RenderItem(ctx, userConfig.Items.Tool); toolObj != nil {
-            	torsoNode.AddChild(NewSceneNode("Tool", toolObj, aeno.Identity()))
-        	}
-    	}
+			if toolObj := s.RenderItem(ctx, userConfig.Items.Tool); toolObj != nil {
+				torsoNode.AddChild(NewSceneNode("Tool", toolObj, aeno.Identity()))
+			}
+		}
 	}
 
 	if userConfig.Items.Tshirt.Item != "none" {
@@ -608,7 +611,7 @@ func (s *Server) buildCharacterTree(ctx context.Context, userConfig UserConfig, 
 		teeMesh, teeMatrix := s.cache.GetMesh(ctx, fmt.Sprintf("%s/assets/tee.glb", cdnURL))
 		if teeMesh != nil {
 			key := fmt.Sprintf("uploads/%s.png", teeHash)
-			teeObj := &aeno.Object{Mesh: teeMesh.Copy(), Color: aeno.Transparent, Texture: s.cache.GetTexture(key), Matrix: teeMatrix}
+			teeObj := &aeno.Object{Mesh: teeMesh.Copy(), Color: aeno.Transparent, Texture: s.cache.GetTexture(ctx, key), Matrix: teeMatrix}
 			torsoNode.AddChild(NewSceneNode("Tshirt", teeObj, aeno.Identity()))
 		}
 	}
@@ -677,7 +680,7 @@ func (s *Server) generateItemObject(ctx context.Context, config ItemConfig) *Sce
 		return rootNode
 	}
 
-	if obj := s.RenderItem(config.Item); obj != nil {
+	if obj := s.RenderItem(ctx, config.Item); obj != nil {
 		rootNode.AddChild(NewSceneNode("ItemObject", obj, aeno.Identity()))
 	}
 	return rootNode
@@ -698,8 +701,8 @@ func (s *Server) generateBodyPartObject(ctx context.Context, config ItemConfig) 
 		obj := &aeno.Object{
 			Mesh:    mesh.Copy(),
 			Color:   aeno.HexColor("d3d3d3"),
-			Texture: s.cache.GetTexture(textureURL),
-			Matrix: meshMatrix,
+			Texture: s.cache.GetTexture(ctx, textureURL),
+			Matrix:  meshMatrix,
 		}
 		rootNode.AddChild(NewSceneNode("BodyPart", obj, aeno.Identity()))
 	}
@@ -756,7 +759,7 @@ func (c *AssetCache) GetMesh(ctx context.Context, key string) (*aeno.Mesh, aeno.
 
 	var mesh *aeno.Mesh
 	matrix := aeno.Identity()
-	
+
 	ext := path.Ext(key)
 	if ext == ".glb" {
 		mesh, matrix, _ = aeno.LoadGLTFFromReader(req.Body)
@@ -792,12 +795,12 @@ func (c *AssetCache) GetTexture(ctx context.Context, key string) aeno.Texture {
 		return nil
 	}
 	defer req.Body.Close()
-	
+
 	data, err := io.ReadAll(req.Body)
 	if err != nil {
 		return nil
 	}
-	
+
 	tex = aeno.TexFromBytes(data)
 	c.textures[key] = tex
 	return tex
