@@ -14,10 +14,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/joho/godotenv"
 	"github.com/netisu/aeno"
 )
@@ -100,11 +101,11 @@ type AssetCache struct {
 	mu         sync.RWMutex
 	meshes     map[string]CachedMesh
 	textures   map[string]aeno.Texture
-	s3Client   *s3.S3
+	s3Client   *s3.Client
 	bucket     string
 }
 
-func NewAssetCache(s3Client *s3.S3, bucket string) *AssetCache {
+func NewAssetCache(s3Client *s3.Client, bucket string) *AssetCache {
 	return &AssetCache{
 		meshes:     make(map[string]CachedMesh),
 		textures:   make(map[string]aeno.Texture),
@@ -144,7 +145,7 @@ type Config struct {
 	ServerAddress string
 	S3Bucket      string
 	CDNURL        string
-	S3Uploader    *s3.S3
+	S3Client    *s3.Client
 }
 
 type Server struct {
@@ -203,28 +204,40 @@ func main() {
 	rootDir := getEnv("RENDERER_ROOT_DIR", "/var/www/renderer")
 	_ = godotenv.Load(path.Join(rootDir, ".env"))
 
-	s3Config := &aws.Config{
-		Credentials:      credentials.NewStaticCredentials(os.Getenv("S3_ACCESS_KEY"), os.Getenv("S3_SECRET_KEY"), ""),
-		Endpoint:         aws.String(os.Getenv("S3_ENDPOINT")),
-		Region:           aws.String(os.Getenv("S3_REGION")),
-		S3ForcePathStyle: aws.Bool(true),
-	}
-	sess, err := session.NewSession(s3Config)
+	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+		return aws.Endpoint{
+			PartitionID:   "aws",
+			URL:           os.Getenv("S3_ENDPOINT"),
+			SigningRegion: os.Getenv("S3_REGION"),
+		}, nil
+	})
+
+	cfg, err := config.LoadDefaultConfig(context.TODO(),
+		config.WithRegion(os.Getenv("S3_REGION")),
+		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(
+			os.Getenv("S3_ACCESS_KEY"),
+			os.Getenv("S3_SECRET_KEY"),
+			"",
+		)),
+		config.WithEndpointResolverWithOptions(customResolver),
+	)
 	if err != nil {
-		log.Fatalf("Failed to create S3 session: %v", err)
+		log.Fatalf("Failed to load AWS v2 config: %v", err)
 	}
 
+	s3Client := s3.NewFromConfig(cfg, func(o *s3.Options) {
+		o.UsePathStyle = true
+	})
 
-	s3Client := s3.New(sess)
 	bucketName := os.Getenv("S3_BUCKET")
 	server := &Server{
 		config: &Config{
 			PostKey:       os.Getenv("POST_KEY"),
 			ServerAddress: os.Getenv("SERVER_ADDRESS"),
 			S3Bucket:      bucketName,
-			S3Uploader:    s3.New(sess),
+			S3Client:      s3Client,
 		},
-		cache:      NewAssetCache(s3Client, bucketName),
+		cache: NewAssetCache(s3Client, bucketName),
 	}
 
 	http.HandleFunc("/", server.handleRender)
@@ -295,18 +308,20 @@ func (s *Server) handleUserRender(w http.ResponseWriter, hash string, config Use
 	var wg sync.WaitGroup
 	wg.Add(2)
 
+	ctx, cancel := context.WithTimeout(context.Background(), RenderTimeout)
+	defer cancel()
 	go func() {
 		defer wg.Done()
 		rootNode, _ := s.buildCharacterTree(config, true)
 		var objects []*aeno.Object
 		rootNode.Flatten(aeno.Identity(), &objects)
 
-		buf, err := s.runRenderWithTimeout(objects, eye, center, up, FovY, Dimensions, Scale, light, AmbColor, LightColor, Near, Far, true)
+		buf, err := s.runRenderWithContext(ctx, objects, eye, center, up, FovY, Dimensions, Scale, light, AmbColor, LightColor, Near, Far, true)
 		if err != nil {
 			log.Printf("User render failed: %v", err)
 			return
 		}
-		_ = s.uploadToS3(context.Background(), buf, path.Join("thumbnails", hash+".png"))
+		_ = s.uploadToS3(ctx, buf, path.Join("thumbnails", hash+".png"))
 	}()
 
 	go func() {
@@ -321,18 +336,17 @@ func (s *Server) handleUserRender(w http.ResponseWriter, hash string, config Use
 		var objects []*aeno.Object
 		rootNode.Flatten(aeno.Identity(), &objects)
 
-		buf, err := s.runRenderWithTimeout(objects, hsEye, hsCenter, hsUp, hsFovY, Dimensions, Scale, light, AmbColor, LightColor, 0.1, 1000, false)
+		buf, err := s.runRenderWithContext(ctx, objects, hsEye, hsCenter, hsUp, hsFovY, Dimensions, Scale, light, AmbColor, LightColor, 0.1, 1000, false)
 		if err != nil {
 			log.Printf("Headshot render failed: %v", err)
 			return
 		}
-		_ = s.uploadToS3(context.Background(), buf, path.Join("thumbnails", hash+"_headshot.png"))
+		_ = s.uploadToS3(ctx, buf, path.Join("thumbnails", hash+"_headshot.png"))
 	}()
 
 	wg.Wait()
 	log.Printf("Completed user render for %s in %v", hash, time.Since(start))
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintln(w, "User render processed.")
 }
 
 func (s *Server) handleItemPreviewRender(w http.ResponseWriter, r *http.Request, hash string, i ItemConfig) {
@@ -386,7 +400,7 @@ func (s *Server) handleItemPreviewRender(w http.ResponseWriter, r *http.Request,
 
 	outputKey := path.Join("thumbnails", hash+".png")
 
-	buf, err := s.runRenderWithTimeout(objects, eye, center, up, FovY, Dimensions, Scale, light, AmbColor, LightColor, Near, Far, true)
+	buf, err := s.runRenderWithContext(objects, eye, center, up, FovY, Dimensions, Scale, light, AmbColor, LightColor, Near, Far, true)
 	if err != nil {
 		log.Printf("Preview render failed: %v", err)
 		http.Error(w, "Render failed", http.StatusGatewayTimeout)
@@ -424,7 +438,7 @@ func (s *Server) handleItemObjectRender(w http.ResponseWriter, r *http.Request, 
 
 	outputKey := path.Join("thumbnails", hash+".png")
 
-	buf, err := s.runRenderWithTimeout(objects, eye, center, up, FovY, Dimensions, Scale, light, AmbColor, LightColor, Near, Far, true)
+	buf, err := s.runRenderWithContext(objects, eye, center, up, FovY, Dimensions, Scale, light, AmbColor, LightColor, Near, Far, true)
 	if err != nil {
 		log.Printf("Object render failed: %v", err)
 		http.Error(w, "Render failed", http.StatusGatewayTimeout)
@@ -441,7 +455,8 @@ func (s *Server) handleItemObjectRender(w http.ResponseWriter, r *http.Request, 
 	fmt.Fprintln(w, "Object render processed.")
 }
 
-func (s *Server) runRenderWithTimeout(
+func (s *Server) runRenderWithContext(
+	ctx context.Context,
 	objects []*aeno.Object,
 	eye, center, up aeno.Vector,
 	fovy float64,
@@ -451,10 +466,7 @@ func (s *Server) runRenderWithTimeout(
 	near, far float64,
 	fit bool,
 ) ([]byte, error) {
-
-	ctx, cancel := context.WithTimeout(context.Background(), RenderTimeout)
-	defer cancel()
-
+	
 	type result struct {
 		data []byte
 		err  error
@@ -474,21 +486,21 @@ func (s *Server) runRenderWithTimeout(
 
 	select {
 	case <-ctx.Done():
-		return nil, fmt.Errorf("render timeout")
+		return nil, ctx.Err()
 	case res := <-resChan:
 		return res.data, res.err
 	}
 }
 
-func (s *Server) buildCharacterTree(userConfig UserConfig, includeTool bool) (*SceneNode, bool) {
+func (s *Server) buildCharacterTree(ctx context.Context, userConfig UserConfig, includeTool bool) (*SceneNode, bool) {
 	cdnURL := s.config.CDNURL
 	isToolEquipped := includeTool && userConfig.Items.Tool.Item != "none"
 
 	getMesh := func(hash, defaultName string) (*aeno.Mesh, aeno.Matrix) {
 		if hash == "" || hash == defaultName {
-			return s.cache.GetMesh(fmt.Sprintf("assets/%s.glb", defaultName))
+			return s.cache.GetMesh(ctx, fmt.Sprintf("assets/%s.glb", defaultName))
 		}
-		return s.cache.GetMesh(fmt.Sprintf("uploads/%s.obj", hash))
+		return s.cache.GetMesh(ctx, fmt.Sprintf("uploads/%s.obj", hash))
 	}
 
 	rootNode := NewSceneNode("Character", nil, aeno.Identity())
@@ -514,7 +526,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, includeTool bool) (*S
 		headObj := &aeno.Object{
 			Mesh:    headMesh.Copy(),
 			Color:   aeno.HexColor(userConfig.Colors["Head"]),
-			Texture: s.AddFace(userConfig.Items.Face),
+			Texture: s.AddFace(ctx, userConfig.Items.Face),
 			Matrix:  headMatrix,
 		}
 		headNode := NewSceneNode("Head", headObj, aeno.Identity())
@@ -608,7 +620,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, includeTool bool) (*S
 	return rootNode, isToolEquipped
 }
 
-func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
+func (s *Server) RenderItem(ctx context.Context, itemData ItemData) *aeno.Object {
 	if itemData.Item == "none" || itemData.Item == "" {
 		return nil
 	}
@@ -625,7 +637,7 @@ func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
 		}
 	}
 
-	finalMesh, finalMatrix := s.cache.GetMesh(meshKey)
+	finalMesh, finalMatrix := s.cache.GetMesh(ctx, meshKey)
 
 	if finalMesh == nil {
 		log.Printf("Warning: Could not render item %s", meshKey)
@@ -635,29 +647,29 @@ func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
 	return &aeno.Object{
 		Mesh:    finalMesh.Copy(),
 		Color:   aeno.Transparent,
-		Texture: s.cache.GetTexture(textureKey),
+		Texture: s.cache.GetTexture(ctx, textureKey),
 		Matrix:  finalMatrix,
 	}
 }
 
-func (s *Server) AddFace(faceData ItemData) aeno.Texture {
+func (s *Server) AddFace(ctx context.Context, faceData ItemData) aeno.Texture {
 	faceKey := "assets/default.png"
 	if faceData.Item != "none" && faceData.Item != "" {
 		faceHash := getTextureHash(faceData)
 		faceKey = fmt.Sprintf("uploads/%s.png", faceHash)
 	}
-	return s.cache.GetTexture(faceKey)
+	return s.cache.GetTexture(ctx, faceKey)
 }
 
-func (s *Server) generateItemObject(config ItemConfig) *SceneNode {
+func (s *Server) generateItemObject(ctx context.Context, config ItemConfig) *SceneNode {
 	rootNode := NewSceneNode("ItemRoot", nil, aeno.Identity())
 	if config.ItemType == "face" {
-		headMesh, headMatrix := s.cache.GetMesh(s.config.CDNURL + "/assets/cranium.glb")
+		headMesh, headMatrix := s.cache.GetMesh(ctx, "/assets/cranium.glb")
 		if headMesh != nil {
 			headObj := &aeno.Object{
 				Mesh:    headMesh.Copy(),
 				Color:   aeno.HexColor("d3d3d3"),
-				Texture: s.AddFace(config.Item),
+				Texture: s.AddFace(ctx, config.Item),
 				Matrix:  headMatrix,
 			}
 			rootNode.AddChild(NewSceneNode("HeadForFace", headObj, aeno.Identity()))
@@ -671,17 +683,15 @@ func (s *Server) generateItemObject(config ItemConfig) *SceneNode {
 	return rootNode
 }
 
-func (s *Server) generateBodyPartObject(config ItemConfig) *SceneNode {
+func (s *Server) generateBodyPartObject(ctx context.Context, config ItemConfig) *SceneNode {
 	rootNode := NewSceneNode("BodyPartRoot", nil, aeno.Identity())
-	cdnURL := s.config.CDNURL
-	partName := config.Item.Item
 
-	textureURL := fmt.Sprintf("%s/assets/error-texture.png", cdnURL)
+	textureURL := "assets/error-texture.png"
 	if config.ItemType == "head" {
-		textureURL = fmt.Sprintf("%s/assets/default.png", cdnURL)
+		textureURL = "assets/default.png"
 	}
 
-	meshURL := fmt.Sprintf("%s/uploads/%s.obj", cdnURL, partName)
+	meshURL := fmt.Sprintf("uploads/%s.obj", config.Item.Item)
 
 	mesh, meshMatrix := s.cache.GetMesh(meshURL)
 	if mesh != nil {
@@ -701,13 +711,13 @@ func (s *Server) uploadToS3(ctx context.Context, data []byte, key string) error 
 	defer cancel()
 
 	size := int64(len(data))
-	_, err := s.config.S3Uploader.PutObjectWithContext(ctx, &s3.PutObjectInput{
+	_, err := s.config.S3Client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket:        aws.String(s.config.S3Bucket),
 		Key:           aws.String(key),
 		Body:          bytes.NewReader(data),
 		ContentLength: aws.Int64(size),
 		ContentType:   aws.String("image/png"),
-		ACL:           aws.String("public-read"),
+		ACL:           types.ObjectCannedACLPublicRead,
 	})
 
 	if err != nil {
@@ -719,7 +729,7 @@ func (s *Server) uploadToS3(ctx context.Context, data []byte, key string) error 
 	return nil
 }
 
-func (c *AssetCache) GetMesh(key string) (*aeno.Mesh, aeno.Matrix) {
+func (c *AssetCache) GetMesh(ctx context.Context, key string) (*aeno.Mesh, aeno.Matrix) {
 	c.mu.RLock()
 	cached, ok := c.meshes[key]
 	c.mu.RUnlock()
@@ -733,7 +743,7 @@ func (c *AssetCache) GetMesh(key string) (*aeno.Mesh, aeno.Matrix) {
 		return cached.Mesh, cached.Matrix
 	}
 
-	req, err := c.s3Client.GetObject(&s3.GetObjectInput{
+	req, err := c.s3Client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(c.bucket),
 		Key:    aws.String(key),
 	})
@@ -772,7 +782,7 @@ func (c *AssetCache) GetTexture(key string) aeno.Texture {
 		return tex
 	}
 
-	req, err := c.s3Client.GetObject(&s3.GetObjectInput{
+	req, err := c.s3Client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(c.bucket),
 		Key:    aws.String(key),
 	})
