@@ -517,7 +517,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, includeTool bool) (*S
 			Texture: s.AddFace(userConfig.Items.Face),
 			Matrix:  headMatrix,
 		}
-		headNode := NewSceneNode("Head", headObj, headMatrix)
+		headNode := NewSceneNode("Head", headObj, aeno.Identity())
 		torsoNode.AddChild(headNode)
 
 		for key, hatData := range userConfig.Items.Hats {
