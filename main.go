@@ -135,7 +135,7 @@ func (n *SceneNode) Flatten(parentMatrix aeno.Matrix, objects *[]*aeno.Object, f
 	}
 	worldMatrix := parentMatrix.Mul(n.LocalMatrix)
 	if n.Object != nil {
-		obj := n.Object
+		obj := *n.Object
 		obj.Matrix = worldMatrix.Mul(obj.Matrix)
 		*objects = append(*objects, obj)
 	}
