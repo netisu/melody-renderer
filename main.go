@@ -101,6 +101,8 @@ type AssetCache struct {
 	meshes     map[string]CachedMesh
 	textures   map[string]aeno.Texture
 	httpClient *http.Client
+	s3Client   *s3.S3
+	bucket     string
 }
 
 func NewAssetCache(client *http.Client) *AssetCache {
@@ -108,6 +110,8 @@ func NewAssetCache(client *http.Client) *AssetCache {
 		meshes:     make(map[string]CachedMesh),
 		textures:   make(map[string]aeno.Texture),
 		httpClient: client,
+		s3Client: s3Client,
+		bucket:   bucket,
 	}
 }
 
@@ -215,15 +219,16 @@ func main() {
 
 	httpClient := &http.Client{Timeout: 10 * time.Second}
 
+	s3Client := s3.New(sess)
+	bucketName := os.Getenv("S3_BUCKET")
 	server := &Server{
 		config: &Config{
 			PostKey:       os.Getenv("POST_KEY"),
 			ServerAddress: os.Getenv("SERVER_ADDRESS"),
-			S3Bucket:      os.Getenv("S3_BUCKET"),
-			CDNURL:        os.Getenv("CDN_URL"),
+			S3Bucket:      bucketName,
 			S3Uploader:    s3.New(sess),
 		},
-		cache:      NewAssetCache(httpClient),
+		cache:      NewAssetCache(s3Client, bucketName),
 		httpClient: httpClient,
 	}
 
@@ -486,9 +491,8 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, includeTool bool) (*S
 
 	getMesh := func(hash, defaultName string) (*aeno.Mesh, aeno.Matrix) {
 		if hash == "" || hash == defaultName {
-			return s.cache.GetMesh(fmt.Sprintf("%s/assets/%s.glb", cdnURL, defaultName))
-		}
-		return s.cache.GetMesh(fmt.Sprintf("%s/uploads/%s.obj", cdnURL, hash))
+			return s.cache.GetMesh(fmt.Sprintf("assets/%s.glb", defaultName))
+		return s.cache.GetMesh(fmt.Sprintf("uploads/%s.obj", hash))
 	}
 
 	rootNode := NewSceneNode("Character", nil, aeno.Identity())
@@ -503,7 +507,7 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, includeTool bool) (*S
 		Matrix: torsoMatrix,
 	}
 	if userConfig.Items.Shirt.Item != "none" {
-		url := fmt.Sprintf("%s/uploads/%s.png", cdnURL, getTextureHash(userConfig.Items.Shirt))
+		key := fmt.Sprintf("uploads/%s.png", getTextureHash(userConfig.Items.Shirt))
 		torsoObj.Texture = s.cache.GetTexture(url)
 	}
 	torsoNode := NewSceneNode("Torso", torsoObj, aeno.Identity())
@@ -544,8 +548,8 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, includeTool bool) (*S
 		if mesh != nil {
 			legObj := &aeno.Object{Mesh: mesh.Copy(), Color: aeno.HexColor(color), Matrix: meshMatrix}
 			if userConfig.Items.Pants.Item != "none" {
-				url := fmt.Sprintf("%s/uploads/%s.png", cdnURL, getTextureHash(userConfig.Items.Pants))
-				legObj.Texture = s.cache.GetTexture(url)
+				key := fmt.Sprintf("uploads/%s.png", getTextureHash(userConfig.Items.Pants))
+				legObj.Texture = s.cache.GetTexture(key)
 			}
 			torsoNode.AddChild(NewSceneNode(leg.Key, legObj, aeno.Identity()))
 		}
@@ -555,8 +559,8 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, includeTool bool) (*S
 	if rArmMesh != nil {
 		rObj := &aeno.Object{Mesh: rArmMesh.Copy(), Color: aeno.HexColor(userConfig.Colors["RightArm"]), Matrix: rArmMatrix}
 		if userConfig.Items.Shirt.Item != "none" {
-			url := fmt.Sprintf("%s/uploads/%s.png", cdnURL, getTextureHash(userConfig.Items.Shirt))
-			rObj.Texture = s.cache.GetTexture(url)
+			key := fmt.Sprintf("uploads/%s.png", getTextureHash(userConfig.Items.Shirt))
+			rObj.Texture = s.cache.GetTexture(key)
 		}
 		torsoNode.AddChild(NewSceneNode("RightArm", rObj, aeno.Identity()))
 	}
@@ -577,8 +581,8 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, includeTool bool) (*S
 	if lArmMesh != nil {
 		lArmObj := &aeno.Object{Mesh: lArmMesh.Copy(), Color: aeno.HexColor(userConfig.Colors["LeftArm"]), Matrix: lArmMatrix}
 		if userConfig.Items.Shirt.Item != "none" {
-			url := fmt.Sprintf("%s/uploads/%s.png", cdnURL, getTextureHash(userConfig.Items.Shirt))
-			lArmObj.Texture = s.cache.GetTexture(url)
+			key := fmt.Sprintf("uploads/%s.png", getTextureHash(userConfig.Items.Shirt))
+			lArmObj.Texture = s.cache.GetTexture(key)
 		}
 		meshMatrix := aeno.Translate(shoulderPos.Negate())
 		lArmMeshNode := NewSceneNode("LeftArmMesh", lArmObj, meshMatrix)
@@ -595,8 +599,8 @@ func (s *Server) buildCharacterTree(userConfig UserConfig, includeTool bool) (*S
 		teeHash := getTextureHash(userConfig.Items.Tshirt)
 		teeMesh, teeMatrix := s.cache.GetMesh(fmt.Sprintf("%s/assets/tee.glb", cdnURL))
 		if teeMesh != nil {
-			url := fmt.Sprintf("%s/uploads/%s.png", cdnURL, teeHash)
-			teeObj := &aeno.Object{Mesh: teeMesh.Copy(), Color: aeno.Transparent, Texture: s.cache.GetTexture(url), Matrix: teeMatrix}
+			key := fmt.Sprintf("uploads/%s.png", teeHash)
+			teeObj := &aeno.Object{Mesh: teeMesh.Copy(), Color: aeno.Transparent, Texture: s.cache.GetTexture(key), Matrix: teeMatrix}
 			torsoNode.AddChild(NewSceneNode("Tshirt", teeObj, aeno.Identity()))
 		}
 	}
@@ -614,42 +618,40 @@ func (s *Server) RenderItem(itemData ItemData) *aeno.Object {
 	}
 
 	cdnURL := s.config.CDNURL
-	meshURL := fmt.Sprintf("%s/uploads/%s.obj", cdnURL, itemData.Item)
-	textureURL := fmt.Sprintf("%s/uploads/%s.png", cdnURL, itemData.Item)
+	meshKey := fmt.Sprintf("uploads/%s.obj", itemData.Item)
+	textureKey := fmt.Sprintf("uploads/%s.png", itemData.Item)
 
 	if itemData.EditStyle != nil {
 		if itemData.EditStyle.IsModel {
-			meshURL = fmt.Sprintf("%s/uploads/%s.obj", cdnURL, itemData.EditStyle.Hash)
+			meshKey = fmt.Sprintf("uploads/%s.obj", itemData.EditStyle.Hash)
 		}
 		if itemData.EditStyle.IsTexture {
-			textureURL = fmt.Sprintf("%s/uploads/%s.png", cdnURL, itemData.EditStyle.Hash)
+			textureKey = fmt.Sprintf("uploads/%s.png", itemData.EditStyle.Hash)
 		}
 	}
 
-	finalMesh, finalMatrix := s.cache.GetMesh(meshURL)
+	finalMesh, finalMatrix := s.cache.GetMesh(meshKey)
 
 	if finalMesh == nil {
-		log.Printf("Warning: Could not render item %s", meshURL)
+		log.Printf("Warning: Could not render item %s", meshKey)
 		return nil
 	}
 
 	return &aeno.Object{
 		Mesh:    finalMesh.Copy(),
 		Color:   aeno.Transparent,
-		Texture: s.cache.GetTexture(textureURL),
+		Texture: s.cache.GetTexture(textureKey),
 		Matrix:  finalMatrix,
 	}
 }
 
 func (s *Server) AddFace(faceData ItemData) aeno.Texture {
-	faceURL := ""
+	faceKey := "assets/default.png"
 	if faceData.Item != "none" && faceData.Item != "" {
 		faceHash := getTextureHash(faceData)
-		faceURL = fmt.Sprintf("%s/uploads/%s.png", s.config.CDNURL, faceHash)
-	} else {
-		faceURL = fmt.Sprintf("%s/assets/default.png", s.config.CDNURL)
+		faceKey = fmt.Sprintf("uploads/%s.png", faceHash)
 	}
-	return s.cache.GetTexture(faceURL)
+	return s.cache.GetTexture(faceKey)
 }
 
 func (s *Server) generateItemObject(config ItemConfig) *SceneNode {
@@ -722,9 +724,9 @@ func (s *Server) uploadToS3(ctx context.Context, data []byte, key string) error 
 	return nil
 }
 
-func (c *AssetCache) GetMesh(url string) (*aeno.Mesh, aeno.Matrix) {
+func (c *AssetCache) GetMesh(key string) (*aeno.Mesh, aeno.Matrix) {
 	c.mu.RLock()
-	cached, ok := c.meshes[url]
+	cached, ok := c.meshes[key]
 	c.mu.RUnlock()
 	if ok {
 		return cached.Mesh, cached.Matrix
@@ -732,17 +734,17 @@ func (c *AssetCache) GetMesh(url string) (*aeno.Mesh, aeno.Matrix) {
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if cached, ok = c.meshes[url]; ok {
+	if cached, ok = c.meshes[key]; ok {
 		return cached.Mesh, cached.Matrix
 	}
 
-	resp, err := c.httpClient.Get(url)
-	if err != nil || resp.StatusCode != 200 {
-		log.Printf("Warning: Mesh inaccessible at %s (Status: %v)", url, resp.StatusCode)
-		c.meshes[url] = CachedMesh{nil, aeno.Identity()}
-		if resp != nil {
-			resp.Body.Close()
-		}
+	req, err := c.s3Client.GetObject(&s3.GetObjectInput{
+		Bucket: aws.String(c.bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		log.Printf("Warning: Mesh inaccessible at S3 key %s (Error: %v)", key, err)
+		c.meshes[key] = CachedMesh{nil, aeno.Identity()}
 		return nil, aeno.Identity()
 	}
 	defer resp.Body.Close()
@@ -750,18 +752,20 @@ func (c *AssetCache) GetMesh(url string) (*aeno.Mesh, aeno.Matrix) {
 	var mesh *aeno.Mesh
 	matrix := aeno.Identity()
 	
-	if path.Ext(url) == ".glb" {
-		mesh, matrix, _ = aeno.LoadGLTFFromReader(resp.Body)
+	ext := path.Ext(key)
+	if ext == ".glb" {
+		mesh, matrix, _ = aeno.LoadGLTFFromReader(req.Body)
 	} else {
-		mesh, _ = aeno.LoadOBJFromReader(resp.Body)
+		mesh, _ = aeno.LoadOBJFromReader(req.Body)
 	}
-	c.meshes[url] = CachedMesh{mesh, matrix}
+
+	c.meshes[key] = CachedMesh{mesh, matrix}
 	return mesh, matrix
 }
 
-func (c *AssetCache) GetTexture(url string) aeno.Texture {
+func (c *AssetCache) GetTexture(key string) aeno.Texture {
 	c.mu.RLock()
-	tex, ok := c.textures[url]
+	tex, ok := c.textures[key]
 	c.mu.RUnlock()
 	if ok {
 		return tex
@@ -769,11 +773,27 @@ func (c *AssetCache) GetTexture(url string) aeno.Texture {
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if tex, ok = c.textures[url]; ok {
+	if tex, ok = c.textures[key]; ok {
 		return tex
 	}
 
-	tex = aeno.LoadTextureFromURL(url)
-	c.textures[url] = tex
+	req, err := c.s3Client.GetObject(&s3.GetObjectInput{
+		Bucket: aws.String(c.bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		log.Printf("Warning: Texture inaccessible at S3 key %s", key)
+		c.textures[key] = nil
+		return nil
+	}
+	defer req.Body.Close()
+	
+	data, err := io.ReadAll(req.Body)
+	if err != nil {
+		return nil
+	}
+	
+	tex = aeno.TexFromBytes(data)
+	c.textures[key] = tex
 	return tex
 }
