@@ -743,7 +743,7 @@ func (c *AssetCache) GetMesh(url string) *aeno.Mesh {
 	defer resp.Body.Close()
 
 	if path.Ext(url) == ".glb" {
-		mesh, _ = aeno.LoadGLTFFromReader(resp.Body)
+		mesh, _, _ = aeno.LoadGLTFFromReader(resp.Body)
 	} else {
 		mesh, _ = aeno.LoadOBJFromReader(resp.Body)
 	}
