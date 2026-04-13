@@ -739,11 +739,11 @@ func (c *AssetCache) GetMesh(url string) (*aeno.Mesh, aeno.Matrix) {
 	resp, err := c.httpClient.Get(url)
 	if err != nil || resp.StatusCode != 200 {
 		log.Printf("Warning: Mesh inaccessible at %s (Status: %v)", url, resp.StatusCode)
-		c.meshes[url] = nil
+		c.meshes[url] = CachedMesh{nil, aeno.Identity()}
 		if resp != nil {
 			resp.Body.Close()
 		}
-		return nil
+		return nil, aeno.Identity()
 	}
 	defer resp.Body.Close()
 
