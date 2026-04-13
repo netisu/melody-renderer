@@ -496,7 +496,6 @@ func (s *Server) runRenderWithContext(
 }
 
 func (s *Server) buildCharacterTree(ctx context.Context, userConfig UserConfig, includeTool bool) (*SceneNode, bool) {
-	cdnURL := s.config.CDNURL
 	isToolEquipped := includeTool && userConfig.Items.Tool.Item != "none"
 
 	getMesh := func(hash, defaultName string) (*aeno.Mesh, aeno.Matrix) {
@@ -608,7 +607,7 @@ func (s *Server) buildCharacterTree(ctx context.Context, userConfig UserConfig, 
 
 	if userConfig.Items.Tshirt.Item != "none" {
 		teeHash := getTextureHash(userConfig.Items.Tshirt)
-		teeMesh, teeMatrix := s.cache.GetMesh(ctx, fmt.Sprintf("%s/assets/tee.glb", cdnURL))
+		teeMesh, teeMatrix := s.cache.GetMesh(ctx, path.Join("assets", "tee.glb"))
 		if teeMesh != nil {
 			key := fmt.Sprintf("uploads/%s.png", teeHash)
 			teeObj := &aeno.Object{Mesh: teeMesh.Copy(), Color: aeno.Transparent, Texture: s.cache.GetTexture(ctx, key), Matrix: teeMatrix}
