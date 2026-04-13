@@ -393,7 +393,7 @@ func (s *Server) handleItemPreviewRender(ctx context.Context, w http.ResponseWri
 			previewConfig.BodyParts.RightLeg = i.Item.Item
 		}
 	}
-	rootNode, _ := s.(ctx, previewConfig, true)
+	rootNode, _ := s.buildCharacterTree(ctx, previewConfig, true)
 
 	var objects []*aeno.Object
 	rootNode.Flatten(aeno.Identity(), &objects)
