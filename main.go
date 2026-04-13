@@ -231,7 +231,6 @@ func main() {
 
 	s3Client := s3.NewFromConfig(cfg, func(o *s3.Options) {
 		o.UsePathStyle = true
-		o.DisableChecksumValidation = true
 	})
 
 	bucketName := os.Getenv("S3_BUCKET")
